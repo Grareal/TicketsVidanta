@@ -1,0 +1,18 @@
+@TicketsVidanta_HostAddress = http://localhost:5137
+
+GET {{TicketsVidanta_HostAddress}}/health
+
+###
+
+POST {{TicketsVidanta_HostAddress}}/api/tickets/process
+Content-Type: application/json
+
+{
+  "resort": "TEST",
+  "reservationId": "123456",
+  "checkNumber": "CHK-001",
+  "room": "100",
+  "reference": "MOCK"
+}
+
+###
