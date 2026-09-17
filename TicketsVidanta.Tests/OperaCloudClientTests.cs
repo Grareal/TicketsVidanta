@@ -42,7 +42,7 @@ public sealed class OperaCloudClientTests
         var client = CreateClient(handler);
 
         var result = await client.UploadDocumentAsync(
-            new DocumentUploadRequest("123456", "ticket.png", "image/png", new byte[] { 1, 2, 3 }, Guid.NewGuid()),
+            new DocumentUploadRequest("123456", "ticket.jpg", "image/jpg", new byte[] { 1, 2, 3 }, Guid.NewGuid()),
             CancellationToken.None);
 
         Assert.True(result.Succeeded);

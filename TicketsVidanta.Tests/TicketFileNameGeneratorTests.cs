@@ -14,7 +14,7 @@ public sealed class TicketFileNameGeneratorTests
         var result = new TicketFileNameGenerator().Generate(context, timestamp);
 
         Assert.StartsWith("VID-TEST-123456-CHK-001-20260915030405-", result);
-        Assert.EndsWith(".png", result);
+        Assert.EndsWith(".jpg", result);
         Assert.DoesNotContain(':', result);
     }
 }
