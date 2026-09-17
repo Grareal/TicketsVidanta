@@ -78,7 +78,7 @@ public sealed class Handler(
                 correlationId, upload.DocumentId);
 
             return new Response(true, correlationId, ProcessingStatus.Completed,
-                "Cheque procesado correctamente con infraestructura Mock.", fileName, upload.DocumentId);
+                "Cheque procesado correctamente.", fileName, upload.DocumentId);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -1,5 +1,12 @@
 # Discovery de bases de datos
 
+## Implementación local disponible
+
+Existe un esquema de referencia ejecutable en `database/` con cola maestra, claim/lease atómico,
+reintentos, idempotencia persistente, auditoría y un origen normalizado `LOCALSQL`. Sirve para
+desarrollo y como contrato inicial de migración; los puntos siguientes continúan pendientes para
+mapearlo a infraestructura corporativa y políticas operativas reales.
+
 ## Tabla maestra
 
 <!-- TODO [DATABASE-DISCOVERY]: confirmar servidor lógico, motor/proveedor, base, esquema,

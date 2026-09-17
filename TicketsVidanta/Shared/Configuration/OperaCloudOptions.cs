@@ -3,10 +3,20 @@ namespace TicketsVidanta.Shared.Configuration;
 public sealed class OperaCloudOptions
 {
     public const string SectionName = "OperaCloud";
-    public string BaseUrl { get; init; } = string.Empty;
-    public string ClientId { get; init; } = string.Empty;
-    public string Scope { get; init; } = string.Empty;
     public bool UseMock { get; init; } = true;
-    // Nunca agregar ClientSecret a archivos versionados. Usar variables de entorno,
-    // Azure Key Vault u otro proveedor corporativo de secretos cuando se defina.
+    public string GatewayUrl { get; init; } = string.Empty;
+    public string TokenPath { get; init; } = "/oauth/v1/tokens";
+    public string GrantType { get; init; } = "client_credentials";
+    public string AppKey { get; init; } = string.Empty;
+    public string ClientId { get; init; } = string.Empty;
+    public string ClientSecret { get; init; } = string.Empty;
+    public string EnterpriseId { get; init; } = string.Empty;
+    public string Scope { get; init; } = string.Empty;
+    public string Username { get; init; } = string.Empty;
+    public string Password { get; init; } = string.Empty;
+    public string HotelId { get; init; } = string.Empty;
+    public string ExternalSystemCode { get; init; } = string.Empty;
+    public string AttachmentUserName { get; init; } = string.Empty;
+    public string AttachmentDescription { get; init; } = "Ticket de consumo";
+    public int TimeoutSeconds { get; init; } = 30;
 }

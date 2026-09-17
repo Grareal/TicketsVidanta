@@ -48,7 +48,7 @@ public sealed class TicketProcessingBackgroundService(
                         transaction.Resort, transaction.ReservationId, transaction.CheckNumber,
                         transaction.Room, transaction.Reference, transaction.SourceSystem), cancellationToken);
 
-                    if (result.Succeeded)
+                    if (result.Succeeded || result.AlreadyProcessed)
                         await repository.MarkAsProcessedAsync(transaction.Id, result.CorrelationId, cancellationToken);
                     else
                         await repository.MarkAsFailedAsync(transaction.Id, result.CorrelationId, result.Message, cancellationToken);

@@ -18,7 +18,13 @@ public sealed class InMemoryProcessingRegistry : IProcessingRegistry
     {
         cancellationToken.ThrowIfCancellationRequested();
         var record = new ProcessingRecord(key, correlationId, ProcessingStatus.Resolving, DateTimeOffset.UtcNow, null, null);
-        return Task.FromResult(_records.TryAdd(key, record));
+        while (true)
+        {
+            if (_records.TryAdd(key, record)) return Task.FromResult(true);
+            if (!_records.TryGetValue(key, out var current) || current.Status != ProcessingStatus.Failed)
+                return Task.FromResult(false);
+            if (_records.TryUpdate(key, record, current)) return Task.FromResult(true);
+        }
     }
 
     public Task RegisterCompletedAsync(ProcessingKey key, Guid correlationId, CancellationToken cancellationToken)

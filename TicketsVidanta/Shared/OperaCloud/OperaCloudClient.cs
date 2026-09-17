@@ -1,49 +1,94 @@
+using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
+using Microsoft.Extensions.Options;
+using TicketsVidanta.Shared.Configuration;
+using TicketsVidanta.Shared.Exceptions;
+
 namespace TicketsVidanta.Shared.OperaCloud;
 
-/// <summary>Marcador para la futura integración real. Solo debe registrarse de forma explícita.</summary>
-public sealed class OperaCloudClient(HttpClient httpClient) : IOperaCloudClient
+public sealed class OperaCloudClient(
+    HttpClient httpClient,
+    IOperaCloudTokenProvider tokenProvider,
+    IOptions<OperaCloudOptions> options) : IOperaCloudClient
 {
-    public Task<ReservationLookupResult> FindReservationAsync(
+    public async Task<ReservationLookupResult> FindReservationAsync(
         string reservationId,
         Guid correlationId,
         CancellationToken cancellationToken)
     {
-        _ = httpClient;
-        // TODO [OHIP-DISCOVERY]:
-        // Pendiente confirmar endpoint OHIP, método HTTP, URL, headers, OAuth, scope,
-        // property/hotel ID, semántica exacta de ReservationId, respuesta y códigos HTTP.
-        //
-        // QUÉ DEBE COLOCARSE AQUÍ:
-        // Una llamada tipada y autenticada, con DTOs basados en documentación oficial validada.
-        //
-        // EJEMPLO ESPERADO:
-        // Construir la solicitud con el hotel autorizado, propagar CorrelationId y mapear not-found.
-        //
-        // NO IMPLEMENTAR HASTA:
-        // Confirmar contrato, ambiente, credenciales no productivas y pruebas de conectividad.
-        throw new NotImplementedException("La consulta OHIP requiere completar Discovery.");
+        var value = options.Value;
+        var path = $"/rsv/v1/hotels/{Uri.EscapeDataString(value.HotelId)}/reservations/{Uri.EscapeDataString(reservationId)}";
+        using var request = await CreateRequestAsync(HttpMethod.Get, path, correlationId, cancellationToken);
+        using var response = await httpClient.SendAsync(request, cancellationToken);
+        if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.NoContent)
+            return new ReservationLookupResult(false, reservationId);
+        if (!response.IsSuccessStatusCode)
+            throw new OperaCloudException(await ErrorAsync("consulta de reserva", response, cancellationToken));
+        return new ReservationLookupResult(true, reservationId);
     }
 
-    public Task<DocumentUploadResult> UploadDocumentAsync(DocumentUploadRequest request, CancellationToken cancellationToken)
+    public async Task<DocumentUploadResult> UploadDocumentAsync(
+        DocumentUploadRequest request,
+        CancellationToken cancellationToken)
     {
-        _ = httpClient;
-        // TODO [OHIP-DISCOVERY]:
-        // Pendiente confirmar endpoint de documentos, método HTTP, URL, headers, OAuth,
-        // scope, property/hotel ID, payload, codificación, MIME type, tamaño máximo,
-        // respuesta, DocumentId y códigos HTTP.
-        //
-        // QUÉ DEBE COLOCARSE AQUÍ:
-        // Carga parametrizada del PNG y mapeo explícito del resultado OHIP.
-        //
-        // EJEMPLO ESPERADO:
-        // Enviar el documento para la reserva validada y devolver el identificador asignado.
-        //
-        // NO IMPLEMENTAR HASTA:
-        // Validar el contrato de documentos en un ambiente autorizado.
-        //
-        // TODO [RETRY-POLICY]:
-        // Definir con OHIP qué timeouts, 429, Retry-After y 5xx admiten reintento.
-        // Los errores funcionales 4xx no deben reintentarse automáticamente.
-        throw new NotImplementedException("La carga de documentos OHIP requiere completar Discovery.");
+        var value = options.Value;
+        using var message = await CreateRequestAsync(
+            HttpMethod.Post, "/med/config/v1/fileAttachments", request.CorrelationId, cancellationToken);
+        message.Content = JsonContent.Create(new
+        {
+            fileName = request.FileName,
+            linkId = request.ReservationId,
+            overwriteExistingFileYN = "N",
+            description = value.AttachmentDescription,
+            linkType = "Reservation",
+            hotelId = value.HotelId,
+            userName = value.AttachmentUserName,
+            globalYN = "N",
+            fileAttachment = Convert.ToBase64String(request.Content.Span)
+        });
+
+        using var response = await httpClient.SendAsync(message, cancellationToken);
+        if (response.StatusCode != HttpStatusCode.Created)
+            return new DocumentUploadResult(false, null,
+                await ErrorAsync("carga de adjunto", response, cancellationToken));
+
+        var location = response.Headers.Location?.ToString();
+        var documentId = string.IsNullOrWhiteSpace(location)
+            ? null
+            : location.TrimEnd('/').Split('/').Last();
+        return new DocumentUploadResult(true, documentId, null);
+    }
+
+    private async Task<HttpRequestMessage> CreateRequestAsync(
+        HttpMethod method,
+        string path,
+        Guid requestId,
+        CancellationToken cancellationToken)
+    {
+        var value = options.Value;
+        var message = new HttpRequestMessage(method, BuildUri(value.GatewayUrl, path));
+        message.Headers.Authorization = new AuthenticationHeaderValue(
+            "Bearer", await tokenProvider.GetAccessTokenAsync(requestId, cancellationToken));
+        message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        message.Headers.TryAddWithoutValidation("x-app-key", value.AppKey);
+        message.Headers.TryAddWithoutValidation("x-hotelid", value.HotelId);
+        message.Headers.TryAddWithoutValidation("X-Request-Id", requestId.ToString());
+        if (!string.IsNullOrWhiteSpace(value.ExternalSystemCode))
+            message.Headers.TryAddWithoutValidation("x-externalSystem", value.ExternalSystemCode);
+        return message;
+    }
+
+    private static Uri BuildUri(string gatewayUrl, string path) =>
+        new(new Uri(gatewayUrl.TrimEnd('/') + "/"), path.TrimStart('/'));
+
+    private static async Task<string> ErrorAsync(
+        string operation,
+        HttpResponseMessage response,
+        CancellationToken cancellationToken)
+    {
+        var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (body.Length > 500) body = body[..500];
+        return $"OHIP rechazó la {operation} con HTTP {(int)response.StatusCode}: {body}";
     }
 }

@@ -1,6 +1,7 @@
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
 using TicketsVidanta.Shared.Auditing;
 using TicketsVidanta.Shared.Configuration;
+using TicketsVidanta.Shared.Database;
 using TicketsVidanta.Shared.Database.Commerce;
 using TicketsVidanta.Shared.Database.Master;
 using TicketsVidanta.Shared.Naming;
@@ -24,21 +25,38 @@ public static class DependencyInjectionExtensions
             .Bind(configuration.GetSection(ProcessingOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
-        services.AddOptions<OperaCloudOptions>().Bind(configuration.GetSection(OperaCloudOptions.SectionName));
+        services.AddOptions<DatabaseOptions>()
+            .Bind(configuration.GetSection(DatabaseOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddOptions<OperaCloudOptions>()
+            .Bind(configuration.GetSection(OperaCloudOptions.SectionName))
+            .Validate(IsValidOperaConfiguration,
+                "La configuración OHIP está incompleta para el modo real.")
+            .ValidateOnStart();
         services.AddOptions<TicketGenerationOptions>().Bind(configuration.GetSection(TicketGenerationOptions.SectionName));
         services.AddOptions<CommerceDatabaseOptions>().Bind(configuration.GetSection(CommerceDatabaseOptions.SectionName));
 
-        services.AddSingleton<IProcessingRegistry, InMemoryProcessingRegistry>();
-        services.AddSingleton<IAuditService, InMemoryAuditService>();
-        if (environment.IsDevelopment())
-            services.AddSingleton<IMasterTransactionRepository, MockMasterTransactionRepository>();
-        else
+        var useSqlPersistence = configuration.GetValue<bool>($"{DatabaseOptions.SectionName}:UseSqlPersistence");
+        if (useSqlPersistence)
+        {
+            services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
+            services.AddSingleton<IProcessingRegistry, SqlProcessingRegistry>();
+            services.AddSingleton<IAuditService, SqlAuditService>();
             services.AddSingleton<IMasterTransactionRepository, SqlMasterTransactionRepository>();
+            services.AddHealthChecks().AddCheck<SqlServerHealthCheck>("sql-server", tags: ["ready"]);
+        }
+        else
+        {
+            services.AddSingleton<IProcessingRegistry, InMemoryProcessingRegistry>();
+            services.AddSingleton<IAuditService, InMemoryAuditService>();
+            services.AddSingleton<IMasterTransactionRepository, MockMasterTransactionRepository>();
+        }
         services.AddSingleton<ICommerceConnectionCatalog, OptionsCommerceConnectionCatalog>();
         services.AddSingleton<ITicketFileNameGenerator, TicketFileNameGenerator>();
-        services.AddTicketResolvers(environment);
-        services.AddOperaCloud(environment);
-        services.AddTicketGeneration(environment);
+        services.AddTicketResolvers(environment, useSqlPersistence);
+        services.AddOperaCloud(configuration);
+        services.AddTicketGeneration(configuration);
 
         services.AddScoped<Validator>();
         services.AddScoped<ITicketProcessor, ProcessHandler>();
@@ -47,30 +65,59 @@ public static class DependencyInjectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddTicketResolvers(this IServiceCollection services, IHostEnvironment environment)
+    public static IServiceCollection AddTicketResolvers(
+        this IServiceCollection services,
+        IHostEnvironment environment,
+        bool useSqlPersistence)
     {
         if (environment.IsDevelopment())
             services.AddSingleton<ICheckResolver, MockCheckResolver>();
+        if (useSqlPersistence)
+            services.AddSingleton<ICheckResolver, SqlCheckResolver>();
         services.AddSingleton<ICheckResolverSelector, CheckResolverSelector>();
         return services;
     }
 
-    public static IServiceCollection AddOperaCloud(this IServiceCollection services, IHostEnvironment environment)
+    public static IServiceCollection AddOperaCloud(this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddHttpClient<OperaCloudClient>();
-        if (environment.IsDevelopment())
+        var useMock = configuration.GetValue<bool>($"{OperaCloudOptions.SectionName}:UseMock");
+        if (useMock)
             services.AddSingleton<IOperaCloudClient, MockOperaCloudClient>();
         else
-            services.AddScoped<IOperaCloudClient>(provider => provider.GetRequiredService<OperaCloudClient>());
+        {
+            var timeout = configuration.GetValue<int?>($"{OperaCloudOptions.SectionName}:TimeoutSeconds") ?? 30;
+            services.AddHttpClient("OperaCloudAuth", client => client.Timeout = TimeSpan.FromSeconds(timeout));
+            services.AddSingleton<IOperaCloudTokenProvider, OperaCloudTokenProvider>();
+            services.AddHttpClient<IOperaCloudClient, OperaCloudClient>(client =>
+                client.Timeout = TimeSpan.FromSeconds(timeout));
+        }
         return services;
     }
 
-    public static IServiceCollection AddTicketGeneration(this IServiceCollection services, IHostEnvironment environment)
+    public static IServiceCollection AddTicketGeneration(this IServiceCollection services, IConfiguration configuration)
     {
-        if (environment.IsDevelopment())
+        if (configuration.GetValue<bool>($"{TicketGenerationOptions.SectionName}:UseMock"))
             services.AddSingleton<ITicketRenderer, MockTicketRenderer>();
         else
             services.AddSingleton<ITicketRenderer, PendingTicketRenderer>();
         return services;
+    }
+
+    private static bool IsValidOperaConfiguration(OperaCloudOptions options)
+    {
+        if (options.UseMock) return true;
+        var common = !string.IsNullOrWhiteSpace(options.GatewayUrl)
+            && !string.IsNullOrWhiteSpace(options.AppKey)
+            && !string.IsNullOrWhiteSpace(options.ClientId)
+            && !string.IsNullOrWhiteSpace(options.ClientSecret)
+            && !string.IsNullOrWhiteSpace(options.HotelId)
+            && options.TimeoutSeconds is >= 1 and <= 300;
+        if (!common) return false;
+
+        return string.Equals(options.GrantType, "password", StringComparison.OrdinalIgnoreCase)
+            ? !string.IsNullOrWhiteSpace(options.Username) && !string.IsNullOrWhiteSpace(options.Password)
+            : string.Equals(options.GrantType, "client_credentials", StringComparison.OrdinalIgnoreCase)
+              && !string.IsNullOrWhiteSpace(options.EnterpriseId)
+              && !string.IsNullOrWhiteSpace(options.Scope);
     }
 }

@@ -9,13 +9,33 @@ El proyecto productivo es una sola API ASP.NET Core sobre .NET 10, con nullable 
 Hoy funciona de extremo a extremo un escenario de desarrollo:
 
 ```text
-POST manual -> validar -> crear contexto/correlation ID -> idempotencia en memoria
--> seleccionar MockCheckResolver -> detalle simulado -> reserva simulada
--> PNG mínimo válido -> nombre sanitizado -> upload simulado -> auditoría en memoria
+tabla SQL o POST manual -> validar -> correlation ID -> idempotencia SQL
+-> seleccionar SqlCheckResolver o MockCheckResolver -> detalle normalizado
+-> reserva Mock/OHIP -> PNG -> nombre sanitizado -> upload Mock/OHIP -> auditoría SQL
 -> completed
 ```
 
-No hay conexiones a infraestructura corporativa, secretos, endpoints OHIP, tablas ni reglas de negocio ficticias.
+El ambiente `Development` usa SQL Server Express para cola maestra, claim/lease, idempotencia,
+consulta de estado, detalle de cheque local y auditoría. Opera Cloud y el renderer continúan en
+modo Mock hasta proporcionar credenciales OHIP y aprobar el diseño visual.
+
+## Base de datos local
+
+La instalación local predeterminada usa `DESKTOP-CRK4HOF\SQLEXPRESS` mediante autenticación
+integrada y la base `TicketsVidanta`. Los scripts son idempotentes y aceptan el nombre de la base
+como variable, por lo que pueden ejecutarse posteriormente en otra instancia:
+
+```powershell
+.\database\install-local.ps1 -ServerInstance '.\SQLEXPRESS' -IncludeDevelopmentSeed
+```
+
+Se crean las tablas `MasterTransactions`, `ProcessingRecords`, `TicketProcessingAudit`,
+`CommerceChecks` y `CommerceCheckItems`, además de llaves, constraints e índices. El seed agrega
+un cheque `LOCALSQL` y una transacción pendiente que el worker procesa automáticamente.
+
+Para migrar a otro servidor, ejecute el mismo script indicando la instancia, establezca
+`Database:UseSqlPersistence=true` y cambie `ConnectionStrings:TicketsVidanta`. En un ambiente real
+coloque la cadena en variables de entorno, Secret Manager o Key Vault; no la agregue al repositorio.
 
 ## Arquitectura
 
@@ -35,15 +55,15 @@ TicketsVidanta/
     ProcesarCheque/       Endpoint, contratos, validador, contexto y pipeline
     ObtenerEstado/        Consulta por CorrelationId
   Shared/
-    Auditing/             Auditoría en memoria y marcador SQL
+    Auditing/             Auditoría SQL o en memoria
     Configuration/        Options tipadas
-    Database/Master/      Contrato maestro, mock y marcador SQL
+    Database/Master/      Cola maestra SQL con claim/lease
     Database/Commerce/    Catálogo extensible de conexiones
     Exceptions/           Excepciones específicas disponibles
     Extensions/           Registro de dependencias
     Naming/               Nombre de archivo aislado
-    OperaCloud/           Contrato, mock y cliente real pendiente
-    Processing/           Idempotencia y BackgroundService
+    OperaCloud/           Mock y cliente OHIP real con OAuth
+    Processing/           Idempotencia SQL/memoria y BackgroundService
     Resolvers/            Resolver Pattern y guía de extensión
     TicketGeneration/     Contrato y PNG mock
 ```
@@ -60,10 +80,11 @@ La tabla maestra entregará pendientes; el worker los reclamará por lote; cada 
 - `MockOperaCloudClient`: considera encontrada la reserva y devuelve un DocumentId con prefijo `MOCK-`.
 - `MockTicketRenderer`: genera un PNG transparente válido de 1x1; no representa el diseño final.
 - `MockMasterTransactionRepository`: entrega un registro de desarrollo una sola vez por proceso.
-- `InMemoryProcessingRegistry`: bloquea duplicados durante la vida del proceso.
-- `InMemoryAuditService`: conserva auditorías durante la vida del proceso y escribe logs.
+- `InMemoryProcessingRegistry` e `InMemoryAuditService`: alternativas cuando
+  `Database:UseSqlPersistence=false`; Development usa las implementaciones SQL.
 
-Se registran de forma explícita y únicamente en Development en `DependencyInjectionExtensions`; no existe selección secreta ni acceso de red accidental. Fuera de Development se registran los marcadores reales pendientes, el endpoint manual y OpenAPI no se publican, y el worker continúa desactivado.
+Los mocks de OHIP y render se seleccionan explícitamente mediante `UseMock`; no existe acceso de
+red accidental. El endpoint manual y OpenAPI solo se publican en Development.
 
 ## Ejecutar
 
@@ -110,17 +131,24 @@ Siga [la guía de resolvers](TicketsVidanta/Shared/Resolvers/README.md). Primero
 
 Siga [la guía de conexiones](TicketsVidanta/Shared/Database/Commerce/README.md). `CommerceDatabases:Connections` admite un número abierto de entradas; contiene solo proveedor y nombre lógico de secret. Una conexión real se resuelve mediante configuración segura y se consume desde un repositorio específico. No agregue connection strings a `appsettings*.json`.
 
-## Implementar la tabla maestra
+## Tabla maestra
 
-Complete `docs/DATABASES-TODO.md`, sustituya `MockMasterTransactionRepository` por `SqlMasterTransactionRepository`, implemente queries parametrizadas y una operación atómica de claim. Debe evitar que varias instancias reclamen el mismo registro y mapear estados sin inventarlos.
+`SqlMasterTransactionRepository` reclama lotes atómicamente mediante `UPDLOCK`, `READPAST` y
+`ROWLOCK`, asigna un lease recuperable y limita intentos. Para conectarlo a una tabla corporativa,
+mantenga el contrato de `IMasterTransactionRepository` y adapte únicamente el repositorio o las
+vistas/stored procedures del servidor destino.
 
-## Implementar Opera Cloud
+## Activar Opera Cloud
 
-Complete `docs/OPERA-CLOUD-TODO.md` con documentación OHIP oficial y pruebas en un ambiente autorizado. Después implemente los dos métodos de `OperaCloudClient`, configure su `HttpClient`, autenticación y DTOs confirmados, y cambie el registro de `IOperaCloudClient`. No aplique retry a 4xx funcionales; la política para 429, `Retry-After`, timeout y 5xx permanece pendiente.
+`OperaCloudClient` implementa OAuth `client_credentials` y `password`, consulta de reserva y carga
+Base64 mediante `/med/config/v1/fileAttachments`. Complete los valores vacíos de `OperaCloud`
+mediante secretos, cambie `OperaCloud:UseMock` a `false` y pruebe primero en un ambiente OHIP no
+productivo. La aplicación valida al arrancar que la configuración obligatoria esté completa.
 
-## Implementar auditoría SQL
+## Auditoría SQL
 
-Defina con DBA esquema, tabla, llaves, índices, longitudes, retención, privacidad y permisos. Implemente `SqlAuditService` con parámetros, garantice que un fallo de auditoría tenga un tratamiento operativo acordado y sustituya el registro DI. No copie mensajes que contengan tokens o datos sensibles.
+`SqlAuditService` persiste resultados parametrizados y permite búsquedas por correlación y llave de
+negocio. Antes de producción todavía deben acordarse retención, purga, privacidad y permisos.
 
 ## Secretos
 
@@ -128,14 +156,17 @@ Defina con DBA esquema, tabla, llaves, índices, longitudes, retención, privaci
 
 ## BackgroundService
 
-Está registrado pero termina sin procesar cuando `Processing:EnableBackgroundProcessing` es `false`, valor predeterminado. Para probarlo con mocks:
+Está registrado y en Development queda habilitado. Reclama registros pendientes de SQL al arrancar
+y después en el intervalo configurado. Para deshabilitarlo temporalmente:
 
 ```powershell
-$env:Processing__EnableBackgroundProcessing = 'true'
+$env:Processing__EnableBackgroundProcessing = 'false'
 dotnet run --project .\TicketsVidanta\TicketsVidanta.csproj --launch-profile http
 ```
 
-`IntervalSeconds`, `BatchSize` y `MaxAttempts` son Options validadas. `MaxAttempts` prepara la configuración, pero no ejecuta retries todavía. Antes de habilitar el worker con SQL real deben definirse claim, lease, concurrencia entre instancias y recuperación tras caídas.
+`IntervalSeconds`, `BatchSize`, `MaxAttempts` y `ClaimLeaseSeconds` son Options validadas. El claim
+es atómico entre instancias, los fallos se reabren hasta `MaxAttempts` y un lease vencido permite
+recuperar trabajo abandonado tras una caída.
 
 ## Pruebas
 
@@ -143,7 +174,9 @@ dotnet run --project .\TicketsVidanta\TicketsVidanta.csproj --launch-profile htt
 dotnet test .\TicketsVidanta.slnx
 ```
 
-Las pruebas cubren nombre/sanitización, selección de resolver, resolver ausente, registro idempotente concurrente y pipeline mock exitoso. Al incorporar integraciones, agregue pruebas unitarias de mapeo y contract/integration tests contra ambientes no productivos; no use producción como fixture.
+Las pruebas cubren nombre/sanitización, selección de resolver, resolver ausente, idempotencia,
+reintentos, pipeline Mock y contratos HTTP principales de OHIP. Las integraciones deben probarse
+contra ambientes no productivos; no use producción como fixture.
 
 ## Pendiente y seguridad
 

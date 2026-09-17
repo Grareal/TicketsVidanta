@@ -1,5 +1,14 @@
 # Discovery de Opera Cloud / OHIP
 
+## Implementación disponible
+
+El cliente ya implementa los contratos públicos oficiales 26.3 para obtener una reserva por ID,
+autenticarse con Resource Owner o Client Credentials y cargar el adjunto Base64 mediante
+`/med/config/v1/fileAttachments`. Consulte `OHIP-CONFIGURATION.md`.
+
+Permanece pendiente validar con las credenciales y versión del ambiente autorizado: permisos,
+límites, códigos funcionales específicos, política de retry y aceptación del PNG final.
+
 <!-- TODO [OHIP-DISCOVERY]: validar exclusivamente con documentación oficial y un
 ambiente autorizado los endpoints, métodos HTTP, rutas, headers, OAuth, token URL,
 grant, scope, property/hotel ID, mapeo de ReservationId, DTOs, códigos y límites. -->

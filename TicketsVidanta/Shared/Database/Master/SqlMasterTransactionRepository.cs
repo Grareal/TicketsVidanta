@@ -1,44 +1,87 @@
+using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Options;
+using TicketsVidanta.Shared.Configuration;
+
 namespace TicketsVidanta.Shared.Database.Master;
 
-/// <summary>Marcador explícito para la futura implementación SQL.</summary>
-public sealed class SqlMasterTransactionRepository : IMasterTransactionRepository
+public sealed class SqlMasterTransactionRepository(
+    ISqlConnectionFactory connectionFactory,
+    IOptions<ProcessingOptions> processingOptions) : IMasterTransactionRepository
 {
-    private static NotImplementedException DiscoveryRequired() => new(
-        "El repositorio SQL requiere confirmar el contrato de la tabla maestra.");
-
-    public Task<IReadOnlyList<MasterTransaction>> GetPendingTransactionsAsync(int batchSize, CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<MasterTransaction>> GetPendingTransactionsAsync(
+        int batchSize,
+        CancellationToken cancellationToken)
     {
-        // TODO [DATABASE-DISCOVERY]:
-        // Pendiente confirmar la tabla maestra.
-        //
-        // QUÉ DEBE COLOCARSE AQUÍ:
-        // 1. nombre de servidor y base mediante configuración segura;
-        // 2. esquema y tabla o stored procedure;
-        // 3. columnas y llave primaria;
-        // 4. significado/campo de ReservationId o RESV_NAME_ID;
-        // 5. CheckNumber, Reference, Resort y sistema origen;
-        // 6. criterio y orden para registros pendientes;
-        // 7. estrategia de bloqueo/claim y aislamiento para consumidores concurrentes.
-        //
-        // EJEMPLO ESPERADO:
-        // Consulta parametrizada que reclame como máximo batchSize registros de forma atómica.
-        //
-        // NO IMPLEMENTAR HASTA:
-        // DBA y negocio confirmen el contrato completo y se disponga de un ambiente no productivo.
-        throw DiscoveryRequired();
+        const string sql = """
+            ;WITH Claimable AS
+            (
+                SELECT TOP (@BatchSize) *
+                FROM dbo.MasterTransactions WITH (UPDLOCK, READPAST, ROWLOCK)
+                WHERE
+                    (Status IN ('Pending', 'Failed') OR
+                     (Status = 'Processing' AND LeaseUntilUtc < SYSUTCDATETIME()))
+                    AND AttemptCount < @MaxAttempts
+                ORDER BY CreatedAtUtc, Id
+            )
+            UPDATE Claimable
+               SET Status = 'Processing',
+                   AttemptCount = AttemptCount + 1,
+                   ClaimedAtUtc = SYSUTCDATETIME(),
+                   LeaseUntilUtc = DATEADD(SECOND, @LeaseSeconds, SYSUTCDATETIME()),
+                   UpdatedAtUtc = SYSUTCDATETIME(),
+                   LastError = NULL
+            OUTPUT CONVERT(nvarchar(30), inserted.Id), inserted.Resort, inserted.ReservationId,
+                   inserted.CheckNumber, inserted.Room, inserted.Reference, inserted.SourceSystem;
+            """;
+
+        var result = new List<MasterTransaction>();
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@BatchSize", batchSize);
+        command.Parameters.AddWithValue("@MaxAttempts", processingOptions.Value.MaxAttempts);
+        command.Parameters.AddWithValue("@LeaseSeconds", processingOptions.Value.ClaimLeaseSeconds);
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            result.Add(new MasterTransaction(
+                reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
+                reader.IsDBNull(4) ? null : reader.GetString(4),
+                reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6)));
+        }
+
+        return result;
     }
 
-    public Task MarkAsProcessedAsync(string transactionId, Guid correlationId, CancellationToken cancellationToken)
-    {
-        // TODO [DATABASE-DISCOVERY]: confirmar operación, columnas de estado, auditoría,
-        // concurrencia y stored procedure para marcar una transacción como completada.
-        throw DiscoveryRequired();
-    }
+    public Task MarkAsProcessedAsync(string transactionId, Guid correlationId, CancellationToken cancellationToken) =>
+        MarkAsync(transactionId, correlationId, "Completed", null, cancellationToken);
 
-    public Task MarkAsFailedAsync(string transactionId, Guid correlationId, string errorMessage, CancellationToken cancellationToken)
+    public Task MarkAsFailedAsync(string transactionId, Guid correlationId, string errorMessage,
+        CancellationToken cancellationToken) =>
+        MarkAsync(transactionId, correlationId, "Failed", errorMessage, cancellationToken);
+
+    private async Task MarkAsync(string transactionId, Guid correlationId, string status,
+        string? errorMessage, CancellationToken cancellationToken)
     {
-        // TODO [DATABASE-DISCOVERY]: confirmar operación, estados, longitud/privacidad
-        // del error, conteo de intentos y mecanismo para marcar una transacción fallida.
-        throw DiscoveryRequired();
+        if (!long.TryParse(transactionId, out var id))
+            throw new ArgumentException("El identificador de transacción SQL no es válido.", nameof(transactionId));
+
+        const string sql = """
+            UPDATE dbo.MasterTransactions
+               SET Status=@Status, CorrelationId=@CorrelationId, LastError=@LastError,
+                   CompletedAtUtc=CASE WHEN @Status='Completed' THEN SYSUTCDATETIME() ELSE NULL END,
+                   LeaseUntilUtc=NULL, UpdatedAtUtc=SYSUTCDATETIME()
+             WHERE Id=@Id AND Status='Processing';
+            """;
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection);
+        command.Parameters.AddWithValue("@Id", id);
+        command.Parameters.AddWithValue("@Status", status);
+        command.Parameters.AddWithValue("@CorrelationId", correlationId);
+        command.Parameters.AddWithValue("@LastError", (object?)errorMessage ?? DBNull.Value);
+        var affected = await command.ExecuteNonQueryAsync(cancellationToken);
+        if (affected != 1)
+            throw new InvalidOperationException($"No se pudo actualizar la transacción maestra {id}.");
     }
 }
