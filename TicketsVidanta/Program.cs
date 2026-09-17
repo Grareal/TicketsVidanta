@@ -10,6 +10,15 @@ builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+
+
+Console.WriteLine("CONFIG TEST");
+
+Console.WriteLine(builder.Configuration["OperaCloud:GatewayUrl"]);
+
+Console.WriteLine(builder.Configuration["OperaCloud:ClientId"]);
+
+Console.WriteLine(builder.Configuration["OperaCloud:HotelId"]);    
 builder.Services.AddTicketProcessing(builder.Configuration, builder.Environment);
 
 var app = builder.Build();

@@ -28,30 +28,67 @@ public sealed class OperaCloudClient(
         return new ReservationLookupResult(true, reservationId);
     }
 
+
+//Mapeo de documentos en el post de ohip hacia operacloud [Billing]
     public async Task<DocumentUploadResult> UploadDocumentAsync(
         DocumentUploadRequest request,
         CancellationToken cancellationToken)
     {
         var value = options.Value;
-        using var message = await CreateRequestAsync(
-            HttpMethod.Post, "/med/config/v1/fileAttachments", request.CorrelationId, cancellationToken);
-        message.Content = JsonContent.Create(new
-        {
-            fileName = request.FileName,
-            linkId = request.ReservationId,
-            overwriteExistingFileYN = "N",
-            description = value.AttachmentDescription,
-            linkType = "Reservation",
-            hotelId = value.HotelId,
-            userName = value.AttachmentUserName,
-            globalYN = "N",
-            fileAttachment = Convert.ToBase64String(request.Content.Span)
-        });
+       using var message = await CreateRequestAsync(
+    HttpMethod.Post,
+    $"/csh/v1/hotels/{value.HotelId}/check/{request.CheckNumber}",
+    request.CorrelationId,
+    cancellationToken);
 
-        using var response = await httpClient.SendAsync(message, cancellationToken);
+var imageBase64 =
+    Convert.ToBase64String(request.Content.Span);
+
+var dataUri =
+    $"data:image/jpg;base64,{imageBase64}";
+
+var payload = new
+{
+    checkDetails = new
+    {
+        checkImage =
+            Convert.ToBase64String(
+                System.Text.Encoding.UTF8.GetBytes(dataUri))
+    }
+};
+
+Console.WriteLine("=== MIME TYPE ===");
+Console.WriteLine(request.MimeType);
+
+Console.WriteLine("=== FILE NAME ===");
+Console.WriteLine(request.FileName);
+
+Console.WriteLine("=== OHIP PAYLOAD ===");
+Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload));
+
+message.Content = JsonContent.Create(payload);
+
+Console.WriteLine(await message.Content.ReadAsStringAsync());
+Console.WriteLine(message.Content.Headers.ContentType);
+
+foreach (var h in message.Headers)
+{
+Console.WriteLine($"{h.Key}: {string.Join(",", h.Value)}");
+}
+         using var response = await httpClient.SendAsync(message, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Created)
-            return new DocumentUploadResult(false, null,
-                await ErrorAsync("carga de adjunto", response, cancellationToken));
+{
+    var body = await response.Content.ReadAsStringAsync(cancellationToken);
+
+    Console.WriteLine("=== OHIP ERROR BODY ===");
+    Console.WriteLine(body);
+
+    return new DocumentUploadResult(
+        false,
+        null,
+        $"OHIP rechazó la carga de adjunto con HTTP {(int)response.StatusCode}: {body}");
+}
+
 
         var location = response.Headers.Location?.ToString();
         var documentId = string.IsNullOrWhiteSpace(location)

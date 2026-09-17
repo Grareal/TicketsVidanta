@@ -65,11 +65,24 @@ public sealed class Handler(
             context.ProcessingStatus = ProcessingStatus.Uploading;
             logger.LogInformation("Uploading to Opera Cloud. CorrelationId={CorrelationId}", correlationId);
             var upload = await operaCloudClient.UploadDocumentAsync(
-                new DocumentUploadRequest(context.ReservationId, fileName, generated.MimeType, generated.Content, correlationId),
-                cancellationToken);
-            if (!upload.Succeeded)
-                return await FailAsync(context, key, upload.Error ?? "Opera Cloud rechazó el documento.", fileName, cancellationToken);
+    new DocumentUploadRequest(
+        context.ReservationId,
+        context.CheckNumber,
+        fileName,
+        generated.MimeType,
+        generated.Content,
+        correlationId),
+    cancellationToken);
 
+if (!upload.Succeeded)
+{
+    return await FailAsync(
+        context,
+        key,
+        upload.Error ?? "Opera Cloud rechazó el documento.",
+        fileName,
+        cancellationToken);
+}
             context.ProcessingStatus = ProcessingStatus.Completed;
             context.CompletedAt = DateTimeOffset.UtcNow;
             await registry.RegisterCompletedAsync(key, correlationId, cancellationToken);

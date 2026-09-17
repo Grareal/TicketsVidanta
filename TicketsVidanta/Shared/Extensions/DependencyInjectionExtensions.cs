@@ -104,20 +104,42 @@ public static class DependencyInjectionExtensions
     }
 
     private static bool IsValidOperaConfiguration(OperaCloudOptions options)
-    {
-        if (options.UseMock) return true;
-        var common = !string.IsNullOrWhiteSpace(options.GatewayUrl)
-            && !string.IsNullOrWhiteSpace(options.AppKey)
-            && !string.IsNullOrWhiteSpace(options.ClientId)
-            && !string.IsNullOrWhiteSpace(options.ClientSecret)
-            && !string.IsNullOrWhiteSpace(options.HotelId)
-            && options.TimeoutSeconds is >= 1 and <= 300;
-        if (!common) return false;
+{
+    Console.WriteLine("=== OHIP CONFIG ===");
+    Console.WriteLine($"UseMock: [{options.UseMock}]");
+    Console.WriteLine($"GatewayUrl: [{options.GatewayUrl}]");
+    Console.WriteLine($"AppKey: [{options.AppKey}]");
+    Console.WriteLine($"ClientId: [{options.ClientId}]");
+    Console.WriteLine($"ClientSecret vacío: [{string.IsNullOrWhiteSpace(options.ClientSecret)}]");
+    Console.WriteLine($"HotelId: [{options.HotelId}]");
+    Console.WriteLine($"GrantType: [{options.GrantType}]");
+    Console.WriteLine($"EnterpriseId: [{options.EnterpriseId}]");
+    Console.WriteLine($"Scope: [{options.Scope}]");
+    Console.WriteLine($"TimeoutSeconds: [{options.TimeoutSeconds}]");
 
-        return string.Equals(options.GrantType, "password", StringComparison.OrdinalIgnoreCase)
-            ? !string.IsNullOrWhiteSpace(options.Username) && !string.IsNullOrWhiteSpace(options.Password)
+    if (options.UseMock) return true;
+
+    var common = !string.IsNullOrWhiteSpace(options.GatewayUrl)
+        && !string.IsNullOrWhiteSpace(options.AppKey)
+        && !string.IsNullOrWhiteSpace(options.ClientId)
+        && !string.IsNullOrWhiteSpace(options.ClientSecret)
+        && !string.IsNullOrWhiteSpace(options.HotelId)
+        && options.TimeoutSeconds is >= 1 and <= 300;
+
+    Console.WriteLine($"Common validation: [{common}]");
+
+    if (!common) return false;
+
+    var result =
+        string.Equals(options.GrantType, "password", StringComparison.OrdinalIgnoreCase)
+            ? !string.IsNullOrWhiteSpace(options.Username) &&
+              !string.IsNullOrWhiteSpace(options.Password)
             : string.Equals(options.GrantType, "client_credentials", StringComparison.OrdinalIgnoreCase)
               && !string.IsNullOrWhiteSpace(options.EnterpriseId)
               && !string.IsNullOrWhiteSpace(options.Scope);
-    }
+
+    Console.WriteLine($"Final validation: [{result}]");
+
+    return result;
+}
 }

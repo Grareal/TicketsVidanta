@@ -9,7 +9,7 @@ public sealed class TicketFileNameGenerator : ITicketFileNameGenerator
     {
         // TODO [BUSINESS-RULE]:
         // Confirmar nomenclatura definitiva requerida por Opera Cloud y negocio.
-        var raw = $"VID-{context.Resort}-{context.ReservationId}-{context.CheckNumber}-{timestamp.UtcDateTime:yyyyMMddHHmmss}-{Guid.NewGuid():N}.png";
+        var raw = $"VID-{context.Resort}-{context.ReservationId}-{context.CheckNumber}-{timestamp.UtcDateTime:yyyyMMddHHmmss}-{Guid.NewGuid():N}.jpg";
         var invalid = Path.GetInvalidFileNameChars().ToHashSet();
         var result = new StringBuilder(raw.Length);
         foreach (var character in raw)
