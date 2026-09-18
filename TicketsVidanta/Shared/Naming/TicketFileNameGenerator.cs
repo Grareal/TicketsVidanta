@@ -5,11 +5,17 @@ namespace TicketsVidanta.Shared.Naming;
 
 public sealed class TicketFileNameGenerator : ITicketFileNameGenerator
 {
-    public string Generate(CheckProcessingContext context, DateTimeOffset timestamp)
+    public string Generate(CheckProcessingContext context, DateTimeOffset timestamp, string mimeType = "image/png")
     {
         // TODO [BUSINESS-RULE]:
         // Confirmar nomenclatura definitiva requerida por Opera Cloud y negocio.
-        var raw = $"VID-{context.Resort}-{context.ReservationId}-{context.CheckNumber}-{timestamp.UtcDateTime:yyyyMMddHHmmss}-{Guid.NewGuid():N}.jpg";
+        var extension = mimeType.ToLowerInvariant() switch
+        {
+            "image/jpeg" => ".jpg",
+            "image/webp" => ".webp",
+            _ => ".png"
+        };
+        var raw = $"VID-{context.Resort}-{context.ReservationId}-{context.CheckNumber}-{timestamp.UtcDateTime:yyyyMMddHHmmss}-{Guid.NewGuid():N}{extension}";
         var invalid = Path.GetInvalidFileNameChars().ToHashSet();
         var result = new StringBuilder(raw.Length);
         foreach (var character in raw)

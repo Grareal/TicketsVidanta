@@ -17,4 +17,15 @@ public sealed class TicketFileNameGeneratorTests
         Assert.EndsWith(".jpg", result);
         Assert.DoesNotContain(':', result);
     }
+
+    [Theory]
+    [InlineData("image/jpeg", ".jpg")]
+    [InlineData("image/webp", ".webp")]
+    public void Generate_UsesExtensionMatchingImageType(string mimeType, string extension)
+    {
+        var result = new TicketFileNameGenerator().Generate(
+            TestFactory.Context(), DateTimeOffset.UtcNow, mimeType);
+
+        Assert.EndsWith(extension, result);
+    }
 }

@@ -1,6 +1,7 @@
 using System.Text.Json.Serialization;
 using TicketsVidanta.Features.Tickets.ObtenerEstado;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
+using TicketsVidanta.Features.VisualTest;
 using TicketsVidanta.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +26,11 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 if (app.Environment.IsDevelopment())
+{
+    app.UseStaticFiles();
     app.MapOpenApi();
+    app.MapVisualTestEndpoints();
+}
 app.MapHealthChecks("/health");
 // TODO [DISCOVERY]:
 // Agregar readiness checks para tabla maestra, bases de comercios, Opera Cloud y

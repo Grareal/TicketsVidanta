@@ -59,7 +59,7 @@ public sealed class Handler(
             context.ProcessingStatus = ProcessingStatus.GeneratingDocument;
             logger.LogInformation("Generating document. CorrelationId={CorrelationId}", correlationId);
             var generated = await ticketRenderer.RenderAsync(context, detail, cancellationToken);
-            fileName = fileNameGenerator.Generate(context, DateTimeOffset.UtcNow);
+            fileName = fileNameGenerator.Generate(context, DateTimeOffset.UtcNow, generated.MimeType);
             logger.LogInformation("Document generated. CorrelationId={CorrelationId}, FileName={FileName}", correlationId, fileName);
 
             context.ProcessingStatus = ProcessingStatus.Uploading;
