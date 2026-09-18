@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prueba visual de cheques</title>
+  <style>
+    :root { color-scheme: light; font-family: Inter, system-ui, sans-serif; background: #f4f6f8; color: #17202a; }
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+    main { width: min(100%, 620px); background: white; border-radius: 18px; padding: 32px; box-shadow: 0 18px 50px rgba(23,32,42,.12); }
+    h1 { margin: 0 0 8px; font-size: clamp(1.7rem, 5vw, 2.3rem); }
+    p { color: #5d6d7e; line-height: 1.55; }
+    label { display: block; margin: 22px 0 8px; font-weight: 700; }
+    input { width: 100%; border: 1px solid #ccd4dc; border-radius: 10px; padding: 12px; font: inherit; }
+    input:focus { outline: 3px solid rgba(20, 105, 175, .18); border-color: #1469af; }
+    #preview { display: none; width: 100%; max-height: 280px; margin-top: 18px; object-fit: contain; border-radius: 10px; background: #eef1f4; }
+    button { width: 100%; margin-top: 24px; border: 0; border-radius: 10px; padding: 13px 18px; background: #1469af; color: white; font: inherit; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: .6; cursor: wait; }
+    #result { min-height: 24px; margin-top: 18px; font-weight: 650; }
+    .success { color: #167345; }
+    .error { color: #b42318; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Imagen de cheque</h1>
+    <p>Selecciona una imagen y escribe el nombre o número exacto del cheque. Al procesar ese cheque, el sistema utilizará esta imagen.</p>
+    <form id="upload-form">
+      <label for="check-number">Nombre o número del cheque</label>
+      <input id="check-number" name="checkNumber" maxlength="80" required autocomplete="off" placeholder="Ej. CHK-001">
+
+      <label for="image">Imagen</label>
+      <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" required>
+      <img id="preview" alt="Vista previa de la imagen seleccionada">
+
+      <button type="submit">Asociar imagen</button>
+      <div id="result" role="status" aria-live="polite"></div>
+    </form>
+  </main>
+  <script>
+    const form = document.querySelector('#upload-form');
+    const fileInput = document.querySelector('#image');
+    const preview = document.querySelector('#preview');
+    const result = document.querySelector('#result');
+    const button = form.querySelector('button');
+
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      if (!file) { preview.style.display = 'none'; return; }
+      preview.src = URL.createObjectURL(file);
+      preview.style.display = 'block';
+    });
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      button.disabled = true;
+      result.className = '';
+      result.textContent = 'Guardando imagen…';
+
+      try {
+        const response = await fetch('/api/visual-test/images', { method: 'POST', body: new FormData(form) });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.message || 'No fue posible guardar la imagen.');
+        result.className = 'success';
+        result.textContent = `${payload.message} Cheque: ${payload.checkNumber}`;
+      } catch (error) {
+        result.className = 'error';
+        result.textContent = error.message;
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

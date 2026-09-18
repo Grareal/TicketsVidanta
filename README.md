@@ -121,6 +121,12 @@ Invoke-RestMethod -Method Post `
   -Body $body
 ```
 
+En `Development`, `http://localhost:5137/visual-test` permite seleccionar una imagen PNG, JPEG o
+WebP y asociarla al nombre o número exacto de un cheque. Mientras el renderer Mock esté activo,
+el pipeline usará esa imagen al procesar el cheque; si no existe una asociación, conservará el PNG
+Mock predeterminado. Las imágenes se guardan localmente en `App_Data/visual-test-images` y no se
+versionan.
+
 Consulte después `GET /api/tickets/{correlationId}/status`. Repetir la misma llave en el mismo proceso devuelve `409 Conflict` por idempotencia.
 
 ## Agregar un resolver

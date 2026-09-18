@@ -1,4 +1,5 @@
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
+using TicketsVidanta.Features.VisualTest;
 using TicketsVidanta.Shared.Auditing;
 using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Database;
@@ -96,8 +97,12 @@ public static class DependencyInjectionExtensions
 
     public static IServiceCollection AddTicketGeneration(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton<IUploadedTicketImageStore, FileSystemUploadedTicketImageStore>();
         if (configuration.GetValue<bool>($"{TicketGenerationOptions.SectionName}:UseMock"))
-            services.AddSingleton<ITicketRenderer, MockTicketRenderer>();
+        {
+            services.AddSingleton<MockTicketRenderer>();
+            services.AddSingleton<ITicketRenderer, UploadedTicketImageRenderer>();
+        }
         else
             services.AddSingleton<ITicketRenderer, PendingTicketRenderer>();
         return services;
