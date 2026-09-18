@@ -45,7 +45,7 @@ var imageBase64 =
     Convert.ToBase64String(request.Content.Span);
 
 var dataUri =
-    $"data:image/jpg;base64,{imageBase64}";
+    $"data:{request.MimeType};base64,{imageBase64}";
 
 var payload = new
 {

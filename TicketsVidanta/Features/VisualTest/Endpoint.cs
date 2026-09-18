@@ -1,4 +1,5 @@
 namespace TicketsVidanta.Features.VisualTest;
+using TicketsVidanta.Shared.OperaCloud;
 
 public static class Endpoint
 {
@@ -7,9 +8,9 @@ public static class Endpoint
         endpoints.MapGet("/visual-test", () => Results.Redirect("/visual-test/index.html"));
 
         endpoints.MapPost("/api/visual-test/images", async (
-                HttpRequest request,
-                IUploadedTicketImageStore imageStore,
-                CancellationToken cancellationToken) =>
+                    HttpRequest request,
+                    IOperaCloudClient operaCloudClient,
+                    CancellationToken cancellationToken) =>
             {
                 if (!request.HasFormContentType)
                     return Results.BadRequest(new { message = "Se esperaba un formulario con una imagen." });
@@ -27,14 +28,36 @@ public static class Endpoint
 
                 try
                 {
+                    
                     await using var stream = image.OpenReadStream();
-                    await imageStore.SaveAsync(checkNumber, stream, image.ContentType, cancellationToken);
+                    using var memory = new MemoryStream();
+                    await stream.CopyToAsync(memory, cancellationToken);
+                    var uploadRequest = new DocumentUploadRequest(
+                        ReservationId: string.Empty,
+                        CheckNumber: checkNumber.Trim(),
+                        FileName: image.FileName,
+                        MimeType: image.ContentType,
+                        Content: memory.ToArray(),
+                        CorrelationId: Guid.NewGuid());
+                    var result = await operaCloudClient.UploadDocumentAsync(
+                        uploadRequest,
+                        cancellationToken);
+                    if (!result.Succeeded)
+                    {
+                        return Results.BadRequest(new
+                        {
+                            message = result.Error
+                        });
+                    }
+
+
                     return Results.Ok(new
                     {
-                        message = "La imagen quedó asociada al cheque.",
-                        checkNumber = checkNumber.Trim(),
-                        fileName = image.FileName
+                        message = "Imagen enviada a Opera.",
+                        checkNumber,
+                        documentId = result.DocumentId
                     });
+
                 }
                 catch (Exception exception) when (exception is ArgumentException or InvalidDataException or IOException)
                 {
