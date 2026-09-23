@@ -9,8 +9,11 @@ public sealed class Validator
         AddRequired(errors, nameof(request.ReservationId), request.ReservationId);
         AddRequired(errors, nameof(request.CheckNumber), request.CheckNumber);
 
-        if (string.IsNullOrWhiteSpace(request.SourceSystem) && string.IsNullOrWhiteSpace(request.Reference))
-            errors[nameof(request.SourceSystem)] = ["SourceSystem o Reference es requerido para seleccionar un resolver."];
+        if (string.IsNullOrWhiteSpace(request.SourceSystem) &&
+            (string.IsNullOrWhiteSpace(request.TcGroup) || string.IsNullOrWhiteSpace(request.TrxCode)) &&
+            string.IsNullOrWhiteSpace(request.Reference))
+            errors[nameof(request.SourceSystem)] =
+                ["Informe SourceSystem o la combinación TcGroup/TrxCode para seleccionar un resolver."];
 
         return errors;
     }

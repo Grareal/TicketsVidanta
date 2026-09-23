@@ -57,31 +57,11 @@ var payload = new
     }
 };
 
-Console.WriteLine("=== MIME TYPE ===");
-Console.WriteLine(request.MimeType);
-
-Console.WriteLine("=== FILE NAME ===");
-Console.WriteLine(request.FileName);
-
-Console.WriteLine("=== OHIP PAYLOAD ===");
-Console.WriteLine(System.Text.Json.JsonSerializer.Serialize(payload));
-
 message.Content = JsonContent.Create(payload);
-
-Console.WriteLine(await message.Content.ReadAsStringAsync());
-Console.WriteLine(message.Content.Headers.ContentType);
-
-foreach (var h in message.Headers)
-{
-Console.WriteLine($"{h.Key}: {string.Join(",", h.Value)}");
-}
          using var response = await httpClient.SendAsync(message, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Created)
 {
     var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-    Console.WriteLine("=== OHIP ERROR BODY ===");
-    Console.WriteLine(body);
 
     return new DocumentUploadResult(
         false,

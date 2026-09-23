@@ -13,6 +13,8 @@ sqlcmd -S $ServerInstance -E -C -b -v DatabaseName=$DatabaseName `
     -i (Join-Path $scriptDirectory "002-schema.sql")
 sqlcmd -S $ServerInstance -E -C -b -v DatabaseName=$DatabaseName `
     -i (Join-Path $scriptDirectory "004-processing-retries.sql")
+sqlcmd -S $ServerInstance -E -C -b -v DatabaseName=$DatabaseName `
+    -i (Join-Path $scriptDirectory "005-financial-transaction-routing.sql")
 
 if ($IncludeDevelopmentSeed) {
     sqlcmd -S $ServerInstance -E -C -b -v DatabaseName=$DatabaseName `

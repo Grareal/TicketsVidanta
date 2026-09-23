@@ -9,6 +9,7 @@ using TicketsVidanta.Shared.Naming;
 using TicketsVidanta.Shared.OperaCloud;
 using TicketsVidanta.Shared.Processing;
 using TicketsVidanta.Shared.Resolvers;
+using TicketsVidanta.Shared.Routing;
 using TicketsVidanta.Shared.TicketGeneration;
 using StatusHandler = TicketsVidanta.Features.Tickets.ObtenerEstado.Handler;
 using ProcessHandler = TicketsVidanta.Features.Tickets.ProcesarCheque.Handler;
@@ -37,6 +38,12 @@ public static class DependencyInjectionExtensions
             .ValidateOnStart();
         services.AddOptions<TicketGenerationOptions>().Bind(configuration.GetSection(TicketGenerationOptions.SectionName));
         services.AddOptions<CommerceDatabaseOptions>().Bind(configuration.GetSection(CommerceDatabaseOptions.SectionName));
+        services.AddOptions<TransactionRoutingOptions>()
+            .Bind(configuration.GetSection(TransactionRoutingOptions.SectionName));
+        services.AddOptions<FinancialTransactionSourceOptions>()
+            .Bind(configuration.GetSection(FinancialTransactionSourceOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
 
         var useSqlPersistence = configuration.GetValue<bool>($"{DatabaseOptions.SectionName}:UseSqlPersistence");
         if (useSqlPersistence)
@@ -45,6 +52,12 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<IProcessingRegistry, SqlProcessingRegistry>();
             services.AddSingleton<IAuditService, SqlAuditService>();
             services.AddSingleton<IMasterTransactionRepository, SqlMasterTransactionRepository>();
+            if (configuration.GetValue<bool>($"{FinancialTransactionSourceOptions.SectionName}:Enabled"))
+            {
+                services.AddSingleton<IFinancialTransactionReader, SqlFinancialTransactionReader>();
+                services.AddSingleton<IMasterTransactionInbox, SqlMasterTransactionInbox>();
+                services.AddHostedService<FinancialTransactionIngestionService>();
+            }
             services.AddHealthChecks().AddCheck<SqlServerHealthCheck>("sql-server", tags: ["ready"]);
         }
         else
@@ -54,7 +67,10 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<IMasterTransactionRepository, MockMasterTransactionRepository>();
         }
         services.AddSingleton<ICommerceConnectionCatalog, OptionsCommerceConnectionCatalog>();
+        services.AddSingleton<ICommerceSqlConnectionFactory, CommerceSqlConnectionFactory>();
+        services.AddSingleton<ITransactionSourceRouter, OptionsTransactionSourceRouter>();
         services.AddSingleton<ITicketFileNameGenerator, TicketFileNameGenerator>();
+        services.AddSingleton<IGeneratedTicketStore, FileSystemGeneratedTicketStore>();
         services.AddTicketResolvers(environment, useSqlPersistence);
         services.AddOperaCloud(configuration);
         services.AddTicketGeneration(configuration);
@@ -75,12 +91,21 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<ICheckResolver, MockCheckResolver>();
         if (useSqlPersistence)
             services.AddSingleton<ICheckResolver, SqlCheckResolver>();
+        services.AddSingleton<ICheckResolver, InssistSpaCheckResolver>();
+        services.AddSingleton<ICheckResolver, InssistKidsClubCheckResolver>();
         services.AddSingleton<ICheckResolverSelector, CheckResolverSelector>();
         return services;
     }
 
     public static IServiceCollection AddOperaCloud(this IServiceCollection services, IConfiguration configuration)
     {
+        var uploadEnabled = configuration.GetValue<bool>($"{OperaCloudOptions.SectionName}:EnableUpload");
+        if (!uploadEnabled)
+        {
+            services.AddSingleton<IOperaCloudClient, DisabledOperaCloudClient>();
+            return services;
+        }
+
         var useMock = configuration.GetValue<bool>($"{OperaCloudOptions.SectionName}:UseMock");
         if (useMock)
             services.AddSingleton<IOperaCloudClient, MockOperaCloudClient>();
@@ -104,47 +129,31 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<ITicketRenderer, UploadedTicketImageRenderer>();
         }
         else
-            services.AddSingleton<ITicketRenderer, PendingTicketRenderer>();
+            services.AddSingleton<ITicketRenderer, SvgTicketRenderer>();
         return services;
     }
 
     private static bool IsValidOperaConfiguration(OperaCloudOptions options)
-{
-    Console.WriteLine("=== OHIP CONFIG ===");
-    Console.WriteLine($"UseMock: [{options.UseMock}]");
-    Console.WriteLine($"GatewayUrl: [{options.GatewayUrl}]");
-    Console.WriteLine($"AppKey: [{options.AppKey}]");
-    Console.WriteLine($"ClientId: [{options.ClientId}]");
-    Console.WriteLine($"ClientSecret vacío: [{string.IsNullOrWhiteSpace(options.ClientSecret)}]");
-    Console.WriteLine($"HotelId: [{options.HotelId}]");
-    Console.WriteLine($"GrantType: [{options.GrantType}]");
-    Console.WriteLine($"EnterpriseId: [{options.EnterpriseId}]");
-    Console.WriteLine($"Scope: [{options.Scope}]");
-    Console.WriteLine($"TimeoutSeconds: [{options.TimeoutSeconds}]");
+    {
+        if (!options.EnableUpload || options.UseMock) return true;
 
-    if (options.UseMock) return true;
+        var common = !string.IsNullOrWhiteSpace(options.GatewayUrl)
+            && !string.IsNullOrWhiteSpace(options.AppKey)
+            && !string.IsNullOrWhiteSpace(options.ClientId)
+            && !string.IsNullOrWhiteSpace(options.ClientSecret)
+            && !string.IsNullOrWhiteSpace(options.HotelId)
+            && options.TimeoutSeconds is >= 1 and <= 300;
 
-    var common = !string.IsNullOrWhiteSpace(options.GatewayUrl)
-        && !string.IsNullOrWhiteSpace(options.AppKey)
-        && !string.IsNullOrWhiteSpace(options.ClientId)
-        && !string.IsNullOrWhiteSpace(options.ClientSecret)
-        && !string.IsNullOrWhiteSpace(options.HotelId)
-        && options.TimeoutSeconds is >= 1 and <= 300;
+        if (!common) return false;
 
-    Console.WriteLine($"Common validation: [{common}]");
+        var result =
+            string.Equals(options.GrantType, "password", StringComparison.OrdinalIgnoreCase)
+                ? !string.IsNullOrWhiteSpace(options.Username) &&
+                  !string.IsNullOrWhiteSpace(options.Password)
+                : string.Equals(options.GrantType, "client_credentials", StringComparison.OrdinalIgnoreCase)
+                  && !string.IsNullOrWhiteSpace(options.EnterpriseId)
+                  && !string.IsNullOrWhiteSpace(options.Scope);
 
-    if (!common) return false;
-
-    var result =
-        string.Equals(options.GrantType, "password", StringComparison.OrdinalIgnoreCase)
-            ? !string.IsNullOrWhiteSpace(options.Username) &&
-              !string.IsNullOrWhiteSpace(options.Password)
-            : string.Equals(options.GrantType, "client_credentials", StringComparison.OrdinalIgnoreCase)
-              && !string.IsNullOrWhiteSpace(options.EnterpriseId)
-              && !string.IsNullOrWhiteSpace(options.Scope);
-
-    Console.WriteLine($"Final validation: [{result}]");
-
-    return result;
-}
+        return result;
+    }
 }

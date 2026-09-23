@@ -1,9 +1,12 @@
+using Microsoft.Extensions.Options;
 using TicketsVidanta.Shared.Auditing;
+using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Models;
 using TicketsVidanta.Shared.Naming;
 using TicketsVidanta.Shared.OperaCloud;
 using TicketsVidanta.Shared.Processing;
 using TicketsVidanta.Shared.Resolvers;
+using TicketsVidanta.Shared.Routing;
 using TicketsVidanta.Shared.TicketGeneration;
 
 namespace TicketsVidanta.Features.Tickets.ProcesarCheque;
@@ -13,14 +16,17 @@ public sealed class Handler(
     ICheckResolverSelector resolverSelector,
     IOperaCloudClient operaCloudClient,
     ITicketRenderer ticketRenderer,
+    IGeneratedTicketStore ticketStore,
     ITicketFileNameGenerator fileNameGenerator,
     IAuditService auditService,
+    ITransactionSourceRouter sourceRouter,
+    IOptions<OperaCloudOptions> operaOptions,
     ILogger<Handler> logger) : ITicketProcessor
 {
     public async Task<Response> ProcessAsync(Request request, CancellationToken cancellationToken)
     {
         var correlationId = Guid.NewGuid();
-        var context = CreateContext(request, correlationId);
+        var context = CreateContext(request, correlationId, sourceRouter);
         var key = ProcessingKey.From(context);
 
         logger.LogInformation(
@@ -51,38 +57,53 @@ public sealed class Handler(
             context.ProcessingStatus = ProcessingStatus.Resolved;
             logger.LogInformation("Check detail retrieved. CorrelationId={CorrelationId}, ItemCount={ItemCount}", correlationId, detail.Items.Count);
 
-            var reservation = await operaCloudClient.FindReservationAsync(
-                context.ReservationId, correlationId, cancellationToken);
-            if (!reservation.Found)
-                return await FailAsync(context, key, "ReservationId no fue localizado en Opera Cloud.", null, cancellationToken);
+            if (operaOptions.Value.EnableUpload)
+            {
+                var reservation = await operaCloudClient.FindReservationAsync(
+                    context.ReservationId, correlationId, cancellationToken);
+                if (!reservation.Found)
+                    return await FailAsync(context, key, "ReservationId no fue localizado en Opera Cloud.", null, cancellationToken);
+            }
 
             context.ProcessingStatus = ProcessingStatus.GeneratingDocument;
             logger.LogInformation("Generating document. CorrelationId={CorrelationId}", correlationId);
             var generated = await ticketRenderer.RenderAsync(context, detail, cancellationToken);
             fileName = fileNameGenerator.Generate(context, DateTimeOffset.UtcNow, generated.MimeType);
+            await ticketStore.SaveAsync(fileName, generated, cancellationToken);
             logger.LogInformation("Document generated. CorrelationId={CorrelationId}, FileName={FileName}", correlationId, fileName);
+
+            if (!operaOptions.Value.EnableUpload)
+            {
+                context.ProcessingStatus = ProcessingStatus.Completed;
+                context.CompletedAt = DateTimeOffset.UtcNow;
+                await registry.RegisterCompletedAsync(key, correlationId, cancellationToken);
+                await auditService.WriteAsync(CreateAudit(context, fileName, null, null), cancellationToken);
+                logger.LogInformation("Ticket archived locally; Opera Cloud upload is disabled. CorrelationId={CorrelationId}", correlationId);
+                return new Response(true, correlationId, ProcessingStatus.Completed,
+                    "Ticket generado localmente; la carga a Opera Cloud está deshabilitada.", fileName);
+            }
 
             context.ProcessingStatus = ProcessingStatus.Uploading;
             logger.LogInformation("Uploading to Opera Cloud. CorrelationId={CorrelationId}", correlationId);
             var upload = await operaCloudClient.UploadDocumentAsync(
-    new DocumentUploadRequest(
-        context.ReservationId,
-        context.CheckNumber,
-        fileName,
-        generated.MimeType,
-        generated.Content,
-        correlationId),
-    cancellationToken);
+                new DocumentUploadRequest(
+                    context.ReservationId,
+                    context.CheckNumber,
+                    fileName,
+                    generated.MimeType,
+                    generated.Content,
+                    correlationId),
+                cancellationToken);
 
-if (!upload.Succeeded)
-{
-    return await FailAsync(
-        context,
-        key,
-        upload.Error ?? "Opera Cloud rechazó el documento.",
-        fileName,
-        cancellationToken);
-}
+            if (!upload.Succeeded)
+            {
+                return await FailAsync(
+                    context,
+                    key,
+                    upload.Error ?? "Opera Cloud rechazó el documento.",
+                    fileName,
+                    cancellationToken);
+            }
             context.ProcessingStatus = ProcessingStatus.Completed;
             context.CompletedAt = DateTimeOffset.UtcNow;
             await registry.RegisterCompletedAsync(key, correlationId, cancellationToken);
@@ -123,7 +144,10 @@ if (!upload.Succeeded)
         return new Response(false, context.CorrelationId, ProcessingStatus.Failed, message, fileName);
     }
 
-    private static CheckProcessingContext CreateContext(Request request, Guid correlationId) => new()
+    private static CheckProcessingContext CreateContext(
+        Request request,
+        Guid correlationId,
+        ITransactionSourceRouter sourceRouter) => new()
     {
         Resort = request.Resort!.Trim(),
         ReservationId = request.ReservationId!.Trim(),
@@ -132,7 +156,10 @@ if (!upload.Succeeded)
         Reference = request.Reference?.Trim(),
         // Para el endpoint de desarrollo, Reference="MOCK" permite usar el resolver Mock
         // del ejemplo solicitado. Los orígenes reales deberán informar SourceSystem explícitamente.
-        SourceSystem = (request.SourceSystem ?? request.Reference ?? string.Empty).Trim(),
+        SourceSystem = (request.SourceSystem ?? sourceRouter.Resolve(request.TcGroup, request.TrxCode)
+            ?? request.Reference ?? string.Empty).Trim(),
+        TcGroup = request.TcGroup?.Trim(),
+        TrxCode = request.TrxCode?.Trim(),
         CorrelationId = correlationId
     };
 

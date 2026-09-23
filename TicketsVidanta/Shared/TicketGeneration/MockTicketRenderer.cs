@@ -5,8 +5,8 @@ namespace TicketsVidanta.Shared.TicketGeneration;
 
 public sealed class MockTicketRenderer : ITicketRenderer
 {
-    private const string TestImagePath =
-        @"C:\Users\enriquemeza\Desktop\udf\base64\ticket.jpg";
+    private static readonly byte[] PlaceholderPng = Convert.FromBase64String(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+Xw3LAAAAAElFTkSuQmCC");
 
     public Task<GeneratedTicket> RenderAsync(
         CheckProcessingContext context,
@@ -15,13 +15,9 @@ public sealed class MockTicketRenderer : ITicketRenderer
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var imageBytes = File.ReadAllBytes(TestImagePath);
-
-        Console.WriteLine($"Imagen cargada: {imageBytes.Length} bytes");
-
         return Task.FromResult(
             new GeneratedTicket(
-                imageBytes,
-                "image/jpeg"));
+                PlaceholderPng,
+                "image/png"));
     }
 }

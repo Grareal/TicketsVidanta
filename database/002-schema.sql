@@ -16,6 +16,8 @@ BEGIN
         Room            nvarchar(20) NULL,
         Reference       nvarchar(100) NULL,
         SourceSystem    nvarchar(50) NOT NULL,
+        TcGroup         nvarchar(80) NULL,
+        TrxCode         nvarchar(80) NULL,
         Status          varchar(20) NOT NULL CONSTRAINT DF_MasterTransactions_Status DEFAULT ('Pending'),
         AttemptCount    int NOT NULL CONSTRAINT DF_MasterTransactions_AttemptCount DEFAULT (0),
         CorrelationId   uniqueidentifier NULL,

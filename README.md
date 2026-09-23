@@ -74,6 +74,15 @@ La tabla maestra entregará pendientes; el worker los reclamará por lote; cada 
 
 `ReservationId` es la llave canónica actual para buscar la reserva. La idempotencia usa provisionalmente `Resort + ReservationId + CheckNumber + SourceSystem`; ambas decisiones deben validarse con negocio. `CorrelationId` es un `Guid` nuevo por intento y aparece en logs, auditoría y contratos externos.
 
+## Integración Inssist disponible
+
+La lectura maestra de `FINANCIAL_TRANSACTIONS_P_DET_CLOUD`, el enrutamiento por
+`TC_GROUP + TRX_CODE`, la selección de base por `RESORT` y los resolvers de SPA/Kids Club ya están
+implementados detrás de configuración deshabilitada. Consulte
+[la guía de integración](docs/INSSIST-INTEGRATION.md) para completar conexiones y códigos reales.
+Los tickets se generan como SVG y se archivan localmente; la carga a Opera Cloud permanece
+bloqueada mediante `OperaCloud:EnableUpload=false`.
+
 ## Componentes Mock
 
 - `MockCheckResolver`: acepta únicamente `SourceSystem=MOCK`.

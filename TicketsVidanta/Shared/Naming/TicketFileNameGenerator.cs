@@ -5,7 +5,7 @@ namespace TicketsVidanta.Shared.Naming;
 
 public sealed class TicketFileNameGenerator : ITicketFileNameGenerator
 {
-    public string Generate(CheckProcessingContext context, DateTimeOffset timestamp, string mimeType = "image/png")
+    public string Generate(CheckProcessingContext context, DateTimeOffset timestamp, string mimeType = "image/jpeg")
     {
         // TODO [BUSINESS-RULE]:
         // Confirmar nomenclatura definitiva requerida por Opera Cloud y negocio.
@@ -13,6 +13,7 @@ public sealed class TicketFileNameGenerator : ITicketFileNameGenerator
         {
             "image/jpeg" => ".jpg",
             "image/webp" => ".webp",
+            "image/svg+xml" => ".svg",
             _ => ".png"
         };
         var raw = $"VID-{context.Resort}-{context.ReservationId}-{context.CheckNumber}-{timestamp.UtcDateTime:yyyyMMddHHmmss}-{Guid.NewGuid():N}{extension}";

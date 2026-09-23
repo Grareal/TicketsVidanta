@@ -31,7 +31,8 @@ public sealed class SqlMasterTransactionRepository(
                    UpdatedAtUtc = SYSUTCDATETIME(),
                    LastError = NULL
             OUTPUT CONVERT(nvarchar(30), inserted.Id), inserted.Resort, inserted.ReservationId,
-                   inserted.CheckNumber, inserted.Room, inserted.Reference, inserted.SourceSystem;
+                   inserted.CheckNumber, inserted.Room, inserted.Reference, inserted.SourceSystem,
+                   inserted.TcGroup, inserted.TrxCode;
             """;
 
         var result = new List<MasterTransaction>();
@@ -47,7 +48,9 @@ public sealed class SqlMasterTransactionRepository(
             result.Add(new MasterTransaction(
                 reader.GetString(0), reader.GetString(1), reader.GetString(2), reader.GetString(3),
                 reader.IsDBNull(4) ? null : reader.GetString(4),
-                reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6)));
+                reader.IsDBNull(5) ? null : reader.GetString(5), reader.GetString(6),
+                reader.IsDBNull(7) ? null : reader.GetString(7),
+                reader.IsDBNull(8) ? null : reader.GetString(8)));
         }
 
         return result;

@@ -21,6 +21,10 @@ public sealed class CheckProcessingContext
     public required Guid CorrelationId { get; init; }
     /// <summary>Nombre lógico del sistema origen, sin asumir un catálogo definitivo.</summary>
     public required string SourceSystem { get; init; }
+    /// <summary>Grupo contable recibido de FINANCIAL_TRANSACTIONS_P_DET_CLOUD.</summary>
+    public string? TcGroup { get; init; }
+    /// <summary>Código de transacción que distingue el tipo de ticket dentro del grupo.</summary>
+    public string? TrxCode { get; init; }
     /// <summary>Etapa actual del procesamiento.</summary>
     public ProcessingStatus ProcessingStatus { get; set; } = ProcessingStatus.Pending;
     /// <summary>Instante UTC en que comenzó el intento.</summary>

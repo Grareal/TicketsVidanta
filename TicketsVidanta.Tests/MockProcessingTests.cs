@@ -1,10 +1,13 @@
+using Microsoft.Extensions.Options;
 using Microsoft.Extensions.Logging.Abstractions;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
 using TicketsVidanta.Shared.Auditing;
+using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Naming;
 using TicketsVidanta.Shared.OperaCloud;
 using TicketsVidanta.Shared.Processing;
 using TicketsVidanta.Shared.Resolvers;
+using TicketsVidanta.Shared.Routing;
 using TicketsVidanta.Shared.TicketGeneration;
 
 namespace TicketsVidanta.Tests;
@@ -12,7 +15,7 @@ namespace TicketsVidanta.Tests;
 public sealed class MockProcessingTests
 {
     [Fact]
-    public async Task ProcessAsync_CompletesFullMockPipeline()
+    public async Task ProcessAsync_GeneratesTicketWithoutOperaUpload()
     {
         var handler = CreateHandler([new MockCheckResolver()]);
         var request = new Request("TEST", "123456", "CHK-001", "100", "MOCK");
@@ -21,7 +24,8 @@ public sealed class MockProcessingTests
 
         Assert.True(result.Succeeded);
         Assert.NotNull(result.FileName);
-        Assert.StartsWith("MOCK-", result.OperaDocumentId);
+        Assert.Null(result.OperaDocumentId);
+        Assert.Contains("deshabilitada", result.Message);
     }
 
     [Fact]
@@ -45,8 +49,11 @@ public sealed class MockProcessingTests
             selector,
             new MockOperaCloudClient(NullLogger<MockOperaCloudClient>.Instance),
             new MockTicketRenderer(),
+            new NullGeneratedTicketStore(),
             new TicketFileNameGenerator(),
             audit,
+            new OptionsTransactionSourceRouter(Options.Create(new TransactionRoutingOptions())),
+            Options.Create(new OperaCloudOptions { UseMock = true, EnableUpload = false }),
             NullLogger<Handler>.Instance);
     }
 }

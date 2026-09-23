@@ -6,9 +6,9 @@ namespace TicketsVidanta.Shared.Database.Commerce;
 public sealed class OptionsCommerceConnectionCatalog(IOptions<CommerceDatabaseOptions> options)
     : ICommerceConnectionCatalog
 {
-    public bool TryGet(string sourceSystem, out CommerceConnectionDescriptor? descriptor)
+    public bool TryGet(string sourceSystem, string resort, out CommerceConnectionDescriptor? descriptor)
     {
-        if (options.Value.Connections.TryGetValue(sourceSystem, out var definition))
+        if (options.Value.Connections.TryGetValue($"{sourceSystem}:{resort}", out var definition))
         {
             descriptor = new CommerceConnectionDescriptor(definition.Provider, definition.ConnectionStringName);
             return true;

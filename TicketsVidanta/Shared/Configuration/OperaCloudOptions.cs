@@ -4,6 +4,7 @@ public sealed class OperaCloudOptions
 {
     public const string SectionName = "OperaCloud";
     public bool UseMock { get; init; } = true;
+    public bool EnableUpload { get; init; }
     public string GatewayUrl { get; init; } = string.Empty;
     public string TokenPath { get; init; } = "/oauth/v1/tokens";
     public string GrantType { get; init; } = "client_credentials";

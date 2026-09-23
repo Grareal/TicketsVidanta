@@ -6,4 +6,6 @@ public sealed record Request(
     string? CheckNumber,
     string? Room,
     string? Reference,
-    string? SourceSystem = null);
+    string? SourceSystem = null,
+    string? TcGroup = null,
+    string? TrxCode = null);

@@ -8,4 +8,6 @@ public sealed record MasterTransaction(
     string CheckNumber,
     string? Room,
     string? Reference,
-    string SourceSystem);
+    string SourceSystem,
+    string? TcGroup = null,
+    string? TrxCode = null);
