@@ -13,7 +13,9 @@ public sealed class SqlFinancialTransactionReader(
 {
     public async Task<IReadOnlyList<FinancialTransactionCandidate>> ReadAsync(CancellationToken cancellationToken)
     {
-        var rules = routingOptions.Value.Rules;
+        var rules = router is ITransactionRouteCatalog catalog
+            ? catalog.GetRules()
+            : routingOptions.Value.Rules;
         if (rules.Count == 0) return [];
 
         var predicates = new List<string>();

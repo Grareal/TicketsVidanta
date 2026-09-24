@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.DataProtection;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
 using TicketsVidanta.Features.VisualTest;
+using TicketsVidanta.Features.DatabaseConfiguration;
 using TicketsVidanta.Shared.Auditing;
 using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Database;
@@ -44,10 +46,21 @@ public static class DependencyInjectionExtensions
             .Bind(configuration.GetSection(FinancialTransactionSourceOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
+        services.AddOptions<DatabaseConfigurationOptions>()
+            .Bind(configuration.GetSection(DatabaseConfigurationOptions.SectionName));
 
         var useSqlPersistence = configuration.GetValue<bool>($"{DatabaseOptions.SectionName}:UseSqlPersistence");
         if (useSqlPersistence)
         {
+            var keyRingDirectory = configuration.GetValue<string>(
+                $"{DatabaseConfigurationOptions.SectionName}:KeyRingDirectory") ?? "App_Data/data-protection-keys";
+            if (!Path.IsPathRooted(keyRingDirectory))
+                keyRingDirectory = Path.Combine(environment.ContentRootPath, keyRingDirectory);
+            Directory.CreateDirectory(keyRingDirectory);
+            var dataProtection = services.AddDataProtection()
+                .SetApplicationName("TicketsVidanta")
+                .PersistKeysToFileSystem(new DirectoryInfo(keyRingDirectory));
+            if (OperatingSystem.IsWindows()) dataProtection.ProtectKeysWithDpapi();
             services.AddSingleton<ISqlConnectionFactory, SqlConnectionFactory>();
             services.AddSingleton<IProcessingRegistry, SqlProcessingRegistry>();
             services.AddSingleton<IAuditService, SqlAuditService>();
@@ -59,6 +72,12 @@ public static class DependencyInjectionExtensions
                 services.AddHostedService<FinancialTransactionIngestionService>();
             }
             services.AddHealthChecks().AddCheck<SqlServerHealthCheck>("sql-server", tags: ["ready"]);
+            services.AddSingleton<ConnectionSecretProtector>();
+            services.AddSingleton<IConfigurationRepository, SqlConfigurationRepository>();
+            services.AddSingleton<DatabaseMetadataService>();
+            services.AddSingleton<RuntimeConfigurationCache>();
+            services.AddSingleton<IRuntimeConfigurationCache>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
+            services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
         }
         else
         {
@@ -68,7 +87,11 @@ public static class DependencyInjectionExtensions
         }
         services.AddSingleton<ICommerceConnectionCatalog, OptionsCommerceConnectionCatalog>();
         services.AddSingleton<ICommerceSqlConnectionFactory, CommerceSqlConnectionFactory>();
-        services.AddSingleton<ITransactionSourceRouter, OptionsTransactionSourceRouter>();
+        services.AddSingleton<OptionsTransactionSourceRouter>();
+        if (useSqlPersistence)
+            services.AddSingleton<ITransactionSourceRouter, ConfigurableTransactionSourceRouter>();
+        else
+            services.AddSingleton<ITransactionSourceRouter>(sp => sp.GetRequiredService<OptionsTransactionSourceRouter>());
         services.AddSingleton<ITicketFileNameGenerator, TicketFileNameGenerator>();
         services.AddSingleton<IGeneratedTicketStore, FileSystemGeneratedTicketStore>();
         services.AddTicketResolvers(environment, useSqlPersistence);
@@ -91,6 +114,8 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<ICheckResolver, MockCheckResolver>();
         if (useSqlPersistence)
             services.AddSingleton<ICheckResolver, SqlCheckResolver>();
+        if (useSqlPersistence)
+            services.AddSingleton<ICheckResolver, ConfigurableSqlCheckResolver>();
         services.AddSingleton<ICheckResolver, InssistSpaCheckResolver>();
         services.AddSingleton<ICheckResolver, InssistKidsClubCheckResolver>();
         services.AddSingleton<ICheckResolverSelector, CheckResolverSelector>();

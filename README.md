@@ -146,6 +146,18 @@ Siga [la guía de resolvers](TicketsVidanta/Shared/Resolvers/README.md). Primero
 
 Siga [la guía de conexiones](TicketsVidanta/Shared/Database/Commerce/README.md). `CommerceDatabases:Connections` admite un número abierto de entradas; contiene solo proveedor y nombre lógico de secret. Una conexión real se resuelve mediante configuración segura y se consume desde un repositorio específico. No agregue connection strings a `appsettings*.json`.
 
+## Configurador visual de fuentes
+
+Existe un módulo administrable en `/db-config` que permite guardar conexiones SQL cifradas,
+descubrir tablas y columnas, relacionar una tabla principal con una de detalle, elegir los campos de
+búsqueda y salida, limitar la cantidad de renglones y definir rutas `TC_GROUP + TRX_CODE`. Los cambios
+se recargan sin reiniciar y desembocan en el mismo pipeline de generación y carga a Opera Cloud.
+
+Ejecute el script `database/006-configurable-database-sources.sql` antes de usarlo. La vista está
+habilitada en Development y apagada por defecto en los demás ambientes. Consulte la
+[guía completa](docs/CONFIGURABLE-DATABASE-SOURCES.md), incluidas las exigencias de autenticación,
+llavero de cifrado y permisos de solo lectura antes de habilitarla fuera de desarrollo.
+
 ## Tabla maestra
 
 `SqlMasterTransactionRepository` reclama lotes atómicamente mediante `UPDLOCK`, `READPAST` y

@@ -2,6 +2,8 @@ using System.Text.Json.Serialization;
 using TicketsVidanta.Features.Tickets.ObtenerEstado;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
 using TicketsVidanta.Features.VisualTest;
+using TicketsVidanta.Features.DatabaseConfiguration;
+using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -22,6 +24,12 @@ if (app.Environment.IsDevelopment())
     app.UseStaticFiles();
     app.MapOpenApi();
     app.MapVisualTestEndpoints();
+}
+if (builder.Configuration.GetValue<bool>($"{DatabaseConfigurationOptions.SectionName}:EnableAdminUi") &&
+    builder.Configuration.GetValue<bool>($"{DatabaseOptions.SectionName}:UseSqlPersistence"))
+{
+    app.UseStaticFiles();
+    app.MapDatabaseConfigurationEndpoints();
 }
 app.MapHealthChecks("/health");
 // TODO [DISCOVERY]:
