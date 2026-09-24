@@ -145,19 +145,44 @@ internal sealed class SqlConfigurationRepository(
     public Task DeleteRouteAsync(Guid id, CancellationToken cancellationToken) =>
         ExecuteAsync("DELETE dbo.ConfigTransactionRoutes WHERE Id=@Id", cancellationToken, new SqlParameter("@Id", id));
 
-    public async Task<RuntimeConfigurationSnapshot> GetRuntimeSnapshotAsync(CancellationToken cancellationToken)
+     public async Task<RuntimeConfigurationSnapshot> GetRuntimeSnapshotAsync(CancellationToken cancellationToken)
+{
+    var routes = await GetRoutesAsync(cancellationToken);
+    var profiles = await GetProfilesAsync(cancellationToken);
+
+    var runtime = new List<RuntimeTicketProfile>();
+
+    foreach (var profile in profiles.Where(x => x.IsEnabled))
     {
-        var routes = await GetRoutesAsync(cancellationToken);
-        var profiles = await GetProfilesAsync(cancellationToken);
-        var runtime = new List<RuntimeTicketProfile>();
-        foreach (var profile in profiles.Where(x => x.IsEnabled))
+        var connection = await GetConnectionAsync(profile.ConnectionId, cancellationToken);
+
+        if (connection is { IsEnabled: true })
         {
-            var connection = await GetConnectionAsync(profile.ConnectionId, cancellationToken);
-            if (connection is { IsEnabled: true })
-                runtime.Add(new(profile, protector.Unprotect(connection.ProtectedConnectionString)));
+            var connectionString =
+                protector.Unprotect(connection.ProtectedConnectionString);
+
+            var builder =
+                new SqlConnectionStringBuilder(connectionString);
+
+            Console.WriteLine("==== Runtime Connection ====");
+            Console.WriteLine($"Name     : {connection.Name}");
+            Console.WriteLine($"Server   : {builder.DataSource}");
+            Console.WriteLine($"Database : {builder.InitialCatalog}");
+            Console.WriteLine($"User     : {builder.UserID}");
+            Console.WriteLine($"Auth     : {builder.IntegratedSecurity}");
+            Console.WriteLine("============================");
+
+            runtime.Add(
+                new RuntimeTicketProfile(
+                    profile,
+                    connectionString));
         }
-        return new(routes.Where(x => x.IsEnabled).ToArray(), runtime);
     }
+
+    return new(
+        routes.Where(x => x.IsEnabled).ToArray(),
+        runtime);
+}
 
     private async Task ExecuteAsync(string sql, CancellationToken cancellationToken, params SqlParameter[] parameters)
     {

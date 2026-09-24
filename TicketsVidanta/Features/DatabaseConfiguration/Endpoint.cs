@@ -53,12 +53,45 @@ public static class Endpoint
         return endpoints;
     }
 
-    private static async Task<IResult> Execute(Func<Task<IResult>> action)
+   private static async Task<IResult> Execute(Func<Task<IResult>> action)
+{
+    try
     {
-        try { return await action(); }
-        catch (ArgumentException exception) { return Results.BadRequest(new { message = exception.Message }); }
-        catch (KeyNotFoundException exception) { return Results.NotFound(new { message = exception.Message }); }
-        catch (SqlException exception) { return Results.BadRequest(new { message = "SQL Server rechazó la operación.", detail = exception.Message }); }
-        catch (System.Security.Cryptography.CryptographicException) { return Results.Problem("No fue posible descifrar la conexión. Verifica el llavero de Data Protection."); }
+        return await action();
     }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { message = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { message = ex.Message });
+    }
+    catch (SqlException ex)
+    {
+        return Results.BadRequest(new
+        {
+            message = "SQL Server rechazó la operación.",
+            sqlError = ex.Message,
+            number = ex.Number,
+            state = ex.State,
+            procedure = ex.Procedure,
+            line = ex.LineNumber,
+            server = ex.Server
+        });
+    }
+    catch (System.Security.Cryptography.CryptographicException)
+    {
+        return Results.Problem(
+            "No fue posible descifrar la conexión. Verifica el llavero de Data Protection.");
+    }
+    catch (Exception ex)
+    {
+        return Results.Problem(
+            title: ex.Message,
+            detail: ex.ToString());
+    }
+}
+
+
 }

@@ -7,13 +7,28 @@ internal sealed class DatabaseMetadataService(
     ConnectionSecretProtector protector)
 {
     public async Task<string> TestAsync(Guid? id, string? rawConnectionString, CancellationToken cancellationToken)
+{
+    var value = await ResolveAsync(id, rawConnectionString, cancellationToken);
+
+    var builder = new SqlConnectionStringBuilder(value)
     {
-        var value = await ResolveAsync(id, rawConnectionString, cancellationToken);
-        var builder = new SqlConnectionStringBuilder(value) { ConnectTimeout = Math.Min(new SqlConnectionStringBuilder(value).ConnectTimeout, 10) };
-        await using var connection = new SqlConnection(builder.ConnectionString);
-        await connection.OpenAsync(cancellationToken);
-        return $"Conexión correcta a {connection.DataSource} / {connection.Database}.";
-    }
+        ConnectTimeout = Math.Min(
+            new SqlConnectionStringBuilder(value).ConnectTimeout, 10)
+    };
+
+    Console.WriteLine("================================");
+    Console.WriteLine($"Server   : {builder.DataSource}");
+    Console.WriteLine($"Database : {builder.InitialCatalog}");
+    Console.WriteLine($"User     : {builder.UserID}");
+    Console.WriteLine($"Auth     : {builder.IntegratedSecurity}");
+    Console.WriteLine("================================");
+
+    await using var connection = new SqlConnection(builder.ConnectionString);
+
+    await connection.OpenAsync(cancellationToken);
+
+    return $"Conexión correcta a {connection.DataSource} / {connection.Database}.";
+}
 
     public async Task<IReadOnlyList<DatabaseTableInfo>> GetSchemaAsync(Guid id, CancellationToken cancellationToken)
     {
