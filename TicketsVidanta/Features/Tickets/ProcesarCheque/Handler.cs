@@ -80,7 +80,7 @@ public sealed class Handler(
                 await auditService.WriteAsync(CreateAudit(context, fileName, null, null), cancellationToken);
                 logger.LogInformation("Ticket archived locally; Opera Cloud upload is disabled. CorrelationId={CorrelationId}", correlationId);
                 return new Response(true, correlationId, ProcessingStatus.Completed,
-                    "Ticket generado localmente; la carga a Opera Cloud está deshabilitada.", fileName);
+                    "El ticker ha sido generado localmente, hace falta habilitar operacloud .", fileName);
             }
 
             context.ProcessingStatus = ProcessingStatus.Uploading;
