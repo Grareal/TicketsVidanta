@@ -13,13 +13,15 @@ public sealed class OperaCloudClient(
     IOptions<OperaCloudOptions> options) : IOperaCloudClient
 {
     public async Task<ReservationLookupResult> FindReservationAsync(
+        string resort,
         string reservationId,
         Guid correlationId,
         CancellationToken cancellationToken)
     {
         var value = options.Value;
-        var path = $"/rsv/v1/hotels/{Uri.EscapeDataString(value.HotelId)}/reservations/{Uri.EscapeDataString(reservationId)}";
-        using var request = await CreateRequestAsync(HttpMethod.Get, path, correlationId, cancellationToken);
+        var hotelId = ResolveHotelId(resort);
+        var path = $"/rsv/v1/hotels/{Uri.EscapeDataString(hotelId)}/reservations/{Uri.EscapeDataString(reservationId)}";
+        using var request = await CreateRequestAsync(HttpMethod.Get, path, hotelId, correlationId, cancellationToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.NoContent)
             return new ReservationLookupResult(false, reservationId);
@@ -34,42 +36,39 @@ public sealed class OperaCloudClient(
         DocumentUploadRequest request,
         CancellationToken cancellationToken)
     {
-        var value = options.Value;
-       using var message = await CreateRequestAsync(
-    HttpMethod.Post,
-    $"/csh/v1/hotels/{value.HotelId}/check/{request.CheckNumber}",
-    request.CorrelationId,
-    cancellationToken);
+        var hotelId = ResolveHotelId(request.Resort);
+        using var message = await CreateRequestAsync(
+            HttpMethod.Post,
+            $"/csh/v1/hotels/{Uri.EscapeDataString(hotelId)}/check/{Uri.EscapeDataString(request.CheckNumber)}",
+            hotelId,
+            request.CorrelationId,
+            cancellationToken);
 
-var imageBase64 =
-    Convert.ToBase64String(request.Content.Span);
+        var imageBase64 = Convert.ToBase64String(request.Content.Span);
+        var dataUri = $"data:{request.MimeType};base64,{imageBase64}";
 
-var dataUri =
-    $"data:{request.MimeType};base64,{imageBase64}";
+        var payload = new
+        {
+            checkDetails = new
+            {
+                checkImage = Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(dataUri))
+            }
+        };
 
-var payload = new
-{
-    checkDetails = new
-    {
-        checkImage =
-            Convert.ToBase64String(
-                System.Text.Encoding.UTF8.GetBytes(dataUri))
-    }
-};
-
-message.Content = JsonContent.Create(payload);
-         using var response = await httpClient.SendAsync(message, cancellationToken);
+        message.Content = JsonContent.Create(payload);
+        using var response = await httpClient.SendAsync(message, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Created)
-{
-    var body = await response.Content.ReadAsStringAsync(cancellationToken);
+        {
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            if (body.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("FOF01526", StringComparison.OrdinalIgnoreCase))
+                return new DocumentUploadResult(true, null, null, AlreadyExists: true);
 
-    return new DocumentUploadResult(
-        false,
-        null,
-        $"OHIP rechazó la carga de adjunto con HTTP {(int)response.StatusCode}: {body}");
-}
-
-
+            return new DocumentUploadResult(
+                false,
+                null,
+                $"OHIP rechazó la carga de adjunto con HTTP {(int)response.StatusCode}: {body}");
+        }
         var location = response.Headers.Location?.ToString();
         var documentId = string.IsNullOrWhiteSpace(location)
             ? null
@@ -80,6 +79,7 @@ message.Content = JsonContent.Create(payload);
     private async Task<HttpRequestMessage> CreateRequestAsync(
         HttpMethod method,
         string path,
+        string hotelId,
         Guid requestId,
         CancellationToken cancellationToken)
     {
@@ -89,11 +89,21 @@ message.Content = JsonContent.Create(payload);
             "Bearer", await tokenProvider.GetAccessTokenAsync(requestId, cancellationToken));
         message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         message.Headers.TryAddWithoutValidation("x-app-key", value.AppKey);
-        message.Headers.TryAddWithoutValidation("x-hotelid", value.HotelId);
+        message.Headers.TryAddWithoutValidation("x-hotelid", hotelId);
         message.Headers.TryAddWithoutValidation("X-Request-Id", requestId.ToString());
         if (!string.IsNullOrWhiteSpace(value.ExternalSystemCode))
             message.Headers.TryAddWithoutValidation("x-externalSystem", value.ExternalSystemCode);
         return message;
+    }
+
+    private string ResolveHotelId(string? resort)
+    {
+        var value = options.Value;
+        if (!string.IsNullOrWhiteSpace(resort) && value.HotelIds.TryGetValue(resort.Trim(), out var mapped) &&
+            !string.IsNullOrWhiteSpace(mapped))
+            return mapped.Trim();
+        if (!string.IsNullOrWhiteSpace(value.HotelId)) return value.HotelId.Trim();
+        throw new InvalidOperationException($"No hay HotelId OHIP configurado para el resort '{resort}'.");
     }
 
     private static Uri BuildUri(string gatewayUrl, string path) =>

@@ -32,6 +32,9 @@ public static class Endpoint
             {
                 var id = await repository.SaveProfileAsync(request, ct); await cache.ReloadAsync(ct); return Results.Ok(new { id });
             }));
+        api.MapPost("/profiles/test-query", async (TestAdvancedQueryRequest request,
+            AdvancedQueryTestService tester, CancellationToken ct) =>
+            await Execute(async () => Results.Ok(await tester.ExecuteAsync(request, ct))));
         api.MapDelete("/profiles/{id:guid}", async (Guid id, IConfigurationRepository repository,
             IRuntimeConfigurationCache cache, CancellationToken ct) => await Execute(async () =>
             {

@@ -9,4 +9,5 @@ public sealed record Response(
     string Message,
     string? FileName = null,
     string? OperaDocumentId = null,
-    bool AlreadyProcessed = false);
+    bool AlreadyProcessed = false,
+    string? SourceStatus = null);

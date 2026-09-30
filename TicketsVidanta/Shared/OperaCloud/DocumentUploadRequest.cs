@@ -6,4 +6,5 @@ public sealed record DocumentUploadRequest(
     string FileName,
     string MimeType,
     ReadOnlyMemory<byte> Content,
-    Guid CorrelationId);
+    Guid CorrelationId,
+    string? Resort = null);

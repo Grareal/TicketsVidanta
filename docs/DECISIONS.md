@@ -22,7 +22,9 @@
 
 ## ADR-006: idempotencia obligatoria
 
-**Estado:** aceptada; implementación productiva pendiente. En memoria protege una instancia. La llave y almacenamiento persistente pueden cambiar.
+**Estado:** aceptada e implementada. La llave de negocio es `RESORT + CHEQUE_NUMBER`. El registro SQL
+y la bandeja local tienen un índice único con esa combinación; reservación, referencia, TRX y sistema
+son metadatos y no generan cargas adicionales.
 
 ## ADR-007: CorrelationId para trazabilidad
 

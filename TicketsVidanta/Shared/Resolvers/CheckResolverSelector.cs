@@ -8,7 +8,14 @@ public sealed class CheckResolverSelector(
 {
     public ResolverSelectionResult Select(CheckProcessingContext context)
     {
-        var matches = resolvers.Where(x => x.CanHandle(context)).Take(2).ToArray();
+        var matches = resolvers.Where(x => x.CanHandle(context)).ToArray();
+        var configured = matches.OfType<ConfigurableSqlCheckResolver>().ToArray();
+        if (configured.Length == 1)
+        {
+            logger.LogInformation("Configured resolver selected. CorrelationId={CorrelationId}, SourceSystem={SourceSystem}",
+                context.CorrelationId, context.SourceSystem);
+            return ResolverSelectionResult.Success(configured[0]);
+        }
         if (matches.Length == 0)
         {
             var message = $"No existe resolver para SourceSystem '{context.SourceSystem}'.";

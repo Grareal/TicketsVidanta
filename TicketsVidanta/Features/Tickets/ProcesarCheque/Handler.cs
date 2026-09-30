@@ -38,7 +38,10 @@ public sealed class Handler(
             logger.LogWarning("Duplicate processing prevented. CorrelationId={CorrelationId}, ReservationId={ReservationId}, CheckNumber={CheckNumber}",
                 correlationId, context.ReservationId, context.CheckNumber);
             return new Response(false, correlationId, ProcessingStatus.Pending,
-                "El cheque ya fue registrado para procesamiento.", AlreadyProcessed: true);
+                "El cheque ya fue registrado para procesamiento.", AlreadyProcessed: true,
+                SourceStatus: operaOptions.Value.EnableUpload && !operaOptions.Value.UseMock
+                    ? "ALREADY_EXISTS"
+                    : null);
         }
 
         string? fileName = null;
@@ -60,7 +63,7 @@ public sealed class Handler(
             if (operaOptions.Value.EnableUpload)
             {
                 var reservation = await operaCloudClient.FindReservationAsync(
-                    context.ReservationId, correlationId, cancellationToken);
+                    context.Resort, context.ReservationId, correlationId, cancellationToken);
                 if (!reservation.Found)
                     return await FailAsync(context, key, "ReservationId no fue localizado en Opera Cloud.", null, cancellationToken);
             }
@@ -92,7 +95,8 @@ public sealed class Handler(
                     fileName,
                     generated.MimeType,
                     generated.Content,
-                    correlationId),
+                    correlationId,
+                    context.Resort),
                 cancellationToken);
 
             if (!upload.Succeeded)
@@ -111,8 +115,12 @@ public sealed class Handler(
             logger.LogInformation("Processing completed. CorrelationId={CorrelationId}, OperaDocumentId={OperaDocumentId}",
                 correlationId, upload.DocumentId);
 
+            var sourceStatus = operaOptions.Value.UseMock
+                ? null
+                : upload.AlreadyExists ? "ALREADY_EXISTS" : "UPLOADED";
             return new Response(true, correlationId, ProcessingStatus.Completed,
-                "Cheque procesado correctamente.", fileName, upload.DocumentId);
+                upload.AlreadyExists ? "El cheque ya existía en Opera Cloud; no se volverá a intentar." : "Cheque procesado correctamente.",
+                fileName, upload.DocumentId, SourceStatus: sourceStatus);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

@@ -19,7 +19,7 @@ public sealed class OperaCloudClientTests
         });
         var client = CreateClient(handler);
 
-        var result = await client.FindReservationAsync("123456", Guid.Parse("11111111-1111-1111-1111-111111111111"), CancellationToken.None);
+        var result = await client.FindReservationAsync("VILC", "123456", Guid.Parse("11111111-1111-1111-1111-111111111111"), CancellationToken.None);
 
         Assert.True(result.Found);
         Assert.Equal("https://gateway.example/rsv/v1/hotels/TEST/reservations/123456", captured!.RequestUri!.ToString());
@@ -29,11 +29,13 @@ public sealed class OperaCloudClientTests
     }
 
     [Fact]
-    public async Task UploadDocumentAsync_UsesOfficialAttachmentPayload()
+    public async Task UploadDocumentAsync_UsesCheckImagePayload()
     {
         string? payload = null;
+        Uri? requestUri = null;
         var handler = new StubHandler(request =>
         {
+            requestUri = request.RequestUri;
             payload = request.Content!.ReadAsStringAsync().GetAwaiter().GetResult();
             var response = new HttpResponseMessage(HttpStatusCode.Created);
             response.Headers.Location = new Uri("https://gateway.example/med/config/v1/fileAttachments/DOC-1");
@@ -47,10 +49,25 @@ public sealed class OperaCloudClientTests
 
         Assert.True(result.Succeeded);
         Assert.Equal("DOC-1", result.DocumentId);
+        Assert.Equal("https://gateway.example/csh/v1/hotels/TEST/check/CHK-1", requestUri!.ToString());
         using var json = JsonDocument.Parse(payload!);
-        Assert.Equal("Reservation", json.RootElement.GetProperty("linkType").GetString());
-        Assert.Equal("123456", json.RootElement.GetProperty("linkId").GetString());
-        Assert.Equal("AQID", json.RootElement.GetProperty("fileAttachment").GetString());
+        var encoded = json.RootElement.GetProperty("checkDetails").GetProperty("checkImage").GetString();
+        Assert.Equal("data:image/jpg;base64,AQID", System.Text.Encoding.UTF8.GetString(Convert.FromBase64String(encoded!)));
+    }
+
+    [Fact]
+    public async Task UploadDocumentAsync_TreatsAlreadyExistsAsSuccess()
+    {
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.Conflict)
+        {
+            Content = new StringContent("FOF01526: check already exists")
+        });
+        var result = await CreateClient(handler).UploadDocumentAsync(
+            new DocumentUploadRequest("123456", "CHK-1", "ticket.jpg", "image/jpg", new byte[] { 1 }, Guid.NewGuid()),
+            CancellationToken.None);
+
+        Assert.True(result.Succeeded);
+        Assert.True(result.AlreadyExists);
     }
 
     private static OperaCloudClient CreateClient(HttpMessageHandler handler)

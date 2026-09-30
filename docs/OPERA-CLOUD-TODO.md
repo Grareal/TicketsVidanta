@@ -2,9 +2,9 @@
 
 ## Implementación disponible
 
-El cliente ya implementa los contratos públicos oficiales 26.3 para obtener una reserva por ID,
-autenticarse con Resource Owner o Client Credentials y cargar el adjunto Base64 mediante
-`/med/config/v1/fileAttachments`. Consulte `OHIP-CONFIGURATION.md`.
+El cliente permite obtener una reserva por ID, autenticarse con Resource Owner o Client Credentials
+y cargar la imagen del cheque mediante
+`/csh/v1/hotels/{HotelId}/check/{checkNumber}`. Consulte `OHIP-CONFIGURATION.md`.
 
 Permanece pendiente validar con las credenciales y versión del ambiente autorizado: permisos,
 límites, códigos funcionales específicos, política de retry y aceptación del PNG final.
@@ -15,7 +15,8 @@ grant, scope, property/hotel ID, mapeo de ReservationId, DTOs, códigos y límit
 
 Para reserva: confirmar si el identificador canónico basta, cómo se acota por hotel, respuesta not-found, estados de reserva admitidos y tratamiento de múltiples coincidencias.
 
-Para documento: confirmar endpoint, relación con reserva, payload binario/base64/multipart, metadatos, nombre, MIME `image/png`, tamaño máximo, resolución, respuesta, `DocumentId`, duplicados y forma de consultar resultado.
+Para imagen: confirmar versión del contrato CSH, payload Base64, MIME aceptado, tamaño máximo,
+resolución, respuesta, identificador, duplicados y forma de consultar resultado.
 
 Para resiliencia: confirmar timeout, idempotency headers si existen, 429, `Retry-After`, 5xx reintentables, límites por hotel/cliente y observabilidad permitida. No reintentar 4xx funcionales automáticamente.
 

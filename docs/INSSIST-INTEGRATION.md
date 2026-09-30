@@ -25,7 +25,7 @@ usar Inssist como fallback.
 ## Flujo implementado
 
 ```text
-FINANCIAL_TRANSACTIONS_P_DET_CLOUD (solo lectura)
+FINANCIAL_TRANSACTIONS_P_DET_CLOUD (lectura y actualización de estado)
   -> regla TC_GROUP + TRX_CODE
   -> bandeja local MasterTransactions (idempotencia y reintentos)
   -> conexión elegida por SourceSystem + RESORT
@@ -37,7 +37,9 @@ FINANCIAL_TRANSACTIONS_P_DET_CLOUD (solo lectura)
 
 La ingestión corporativa está apagada por defecto. Cuando se habilita, consulta una ventana reciente,
 inserta únicamente llaves nuevas en la bandeja local y deja que el worker existente haga claim/lease.
-Esto evita intentar escribir estados de procesamiento en la tabla corporativa.
+La lectura agrupa por `RESORT + CHEQUE_NUMBER`. Después de una carga exitosa se actualizan todas las
+filas de esa llave con `PROCESADO=1`, fecha UTC y estado `UPLOADED`. Si OHIP devuelve `FOF01526` o
+`already exists`, se usa `ALREADY_EXISTS` y no se reintenta.
 
 ## Configuración pendiente
 
@@ -82,8 +84,8 @@ FinancialTransactionSource__Enabled=true
 ```
 
 Antes de habilitar la ingestión se debe ejecutar `database/005-financial-transaction-routing.sql` en
-la base local. La cuenta de la fuente corporativa solo necesita `SELECT`; las cuentas de Inssist
-también deben ser de solo lectura.
+la base local. La cuenta de la fuente corporativa necesita `SELECT` y `UPDATE` limitado a las tres
+columnas de procesamiento; las cuentas de Inssist deben ser de solo lectura.
 
 ## Correlaciones aplicadas
 

@@ -16,6 +16,7 @@ public sealed class OperaCloudOptions
     public string Username { get; init; } = string.Empty;
     public string Password { get; init; } = string.Empty;
     public string HotelId { get; init; } = string.Empty;
+    public Dictionary<string, string> HotelIds { get; init; } = new(StringComparer.OrdinalIgnoreCase);
     public string ExternalSystemCode { get; init; } = string.Empty;
     public string AttachmentUserName { get; init; } = string.Empty;
     public string AttachmentDescription { get; init; } = "Ticket de consumo";

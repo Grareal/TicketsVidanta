@@ -8,6 +8,19 @@ public sealed record SaveDatabaseConnectionRequest(
 
 public sealed record TestDatabaseConnectionRequest(Guid? Id, string? ConnectionString);
 
+public sealed record TestAdvancedQueryRequest(
+    Guid ConnectionId,
+    string? QueryTemplate,
+    string? ReservationId,
+    string? CheckNumber,
+    string? Resort,
+    int MaxRows = 10);
+
+public sealed record AdvancedQueryPreview(
+    IReadOnlyList<string> Columns,
+    IReadOnlyList<IReadOnlyList<object?>> Rows,
+    IReadOnlyList<string> MissingRecommendedRoles);
+
 public sealed record DatabaseTableInfo(string Schema, string Name, IReadOnlyList<DatabaseColumnInfo> Columns);
 public sealed record DatabaseColumnInfo(string Name, string DataType, bool IsNullable);
 
@@ -30,6 +43,7 @@ public sealed record TicketProfile(
     IReadOnlyDictionary<string, string> FieldMappings,
     string? CurrencyConstant,
     int MaxRows,
+    string? QueryTemplate,
     DateTimeOffset UpdatedAtUtc);
 
 public sealed record SaveTicketProfileRequest(
@@ -50,7 +64,8 @@ public sealed record SaveTicketProfileRequest(
     string? ResortColumn,
     Dictionary<string, string>? FieldMappings,
     string? CurrencyConstant,
-    int MaxRows = 250);
+    int MaxRows = 250,
+    string? QueryTemplate = null);
 
 public sealed record TransactionRoute(
     Guid Id, string TcGroup, string TrxCode, string SourceSystem, bool IsEnabled, DateTimeOffset UpdatedAtUtc);

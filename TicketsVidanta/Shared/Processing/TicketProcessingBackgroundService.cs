@@ -37,6 +37,7 @@ public sealed class TicketProcessingBackgroundService(
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IMasterTransactionRepository>();
             var processor = scope.ServiceProvider.GetRequiredService<ITicketProcessor>();
+            var sourceWriter = scope.ServiceProvider.GetService<IFinancialTransactionStatusWriter>();
             var pending = await repository.GetPendingTransactionsAsync(options.Value.BatchSize, cancellationToken);
 
             foreach (var transaction in pending)
@@ -48,6 +49,11 @@ public sealed class TicketProcessingBackgroundService(
                         transaction.Resort, transaction.ReservationId, transaction.CheckNumber,
                         transaction.Room, transaction.Reference, transaction.SourceSystem,
                         transaction.TcGroup, transaction.TrxCode), cancellationToken);
+
+                    if ((result.Succeeded || result.AlreadyProcessed) &&
+                        sourceWriter is not null && result.SourceStatus is not null)
+                        await sourceWriter.MarkProcessedAsync(
+                            transaction.Resort, transaction.CheckNumber, result.SourceStatus, cancellationToken);
 
                     if (result.Succeeded || result.AlreadyProcessed)
                         await repository.MarkAsProcessedAsync(transaction.Id, result.CorrelationId, cancellationToken);

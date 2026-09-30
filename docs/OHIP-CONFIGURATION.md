@@ -8,8 +8,8 @@ La implementación sigue la documentación y las especificaciones oficiales de O
   https://github.com/oracle/hospitality-api-docs
 - Especificación de reservas `rsv/v1`:
   https://github.com/oracle/hospitality-api-docs/blob/main/rest-api-specs/property/v1/rsv.json
-- Especificación de adjuntos `med/config/v1`:
-  https://github.com/oracle/hospitality-api-docs/blob/main/rest-api-specs/property/v1/medcfg.json
+- La carga acordada para este proyecto usa `POST /csh/v1/hotels/{HotelId}/check/{checkNumber}`
+  con `checkDetails.checkImage`. Debe validarse contra el ambiente OHIP no productivo asignado.
 
 ## Valores requeridos
 
@@ -45,7 +45,23 @@ $env:OperaCloud__Password = ''
 `ExternalSystemCode` es opcional y evita que una escritura sea reenviada a la misma integración
 cuando se usan eventos. `GatewayUrl`, flujo OAuth, `EnterpriseId`, credenciales y `AppKey` deben
 copiarse del ambiente y aplicación correctos en el OHIP Developer Portal. `HotelId` lo proporciona
-el hotel y debe enviarse tanto en la ruta como en `x-hotelid`.
+el hotel y debe enviarse tanto en la ruta como en `x-hotelid`. Para varios resorts configure el
+diccionario `HotelIds`; el valor simple `HotelId` queda como fallback:
+
+```json
+{
+  "OperaCloud": {
+    "HotelId": "",
+    "HotelIds": {
+      "VILC": "HOTEL_OHIP_VILC",
+      "VINV": "HOTEL_OHIP_VINV"
+    }
+  }
+}
+```
+
+En variables de entorno: `OperaCloud__HotelIds__VILC=HOTEL_OHIP_VILC`. Si no existe mapeo ni
+fallback, el cheque falla de forma controlada y no se marca procesado en la tabla financiera.
 
 Los tokens se almacenan solo en memoria y se reutilizan hasta cinco minutos antes de expirar. La
 aplicación nunca registra el token ni el client secret.

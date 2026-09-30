@@ -68,6 +68,7 @@ public static class DependencyInjectionExtensions
             if (configuration.GetValue<bool>($"{FinancialTransactionSourceOptions.SectionName}:Enabled"))
             {
                 services.AddSingleton<IFinancialTransactionReader, SqlFinancialTransactionReader>();
+                services.AddSingleton<IFinancialTransactionStatusWriter, SqlFinancialTransactionStatusWriter>();
                 services.AddSingleton<IMasterTransactionInbox, SqlMasterTransactionInbox>();
                 services.AddHostedService<FinancialTransactionIngestionService>();
             }
@@ -75,6 +76,7 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<ConnectionSecretProtector>();
             services.AddSingleton<IConfigurationRepository, SqlConfigurationRepository>();
             services.AddSingleton<DatabaseMetadataService>();
+            services.AddSingleton<AdvancedQueryTestService>();
             services.AddSingleton<RuntimeConfigurationCache>();
             services.AddSingleton<IRuntimeConfigurationCache>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
             services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
@@ -166,7 +168,7 @@ public static class DependencyInjectionExtensions
             && !string.IsNullOrWhiteSpace(options.AppKey)
             && !string.IsNullOrWhiteSpace(options.ClientId)
             && !string.IsNullOrWhiteSpace(options.ClientSecret)
-            && !string.IsNullOrWhiteSpace(options.HotelId)
+            && (!string.IsNullOrWhiteSpace(options.HotelId) || options.HotelIds.Any(x => !string.IsNullOrWhiteSpace(x.Value)))
             && options.TimeoutSeconds is >= 1 and <= 300;
 
         if (!common) return false;

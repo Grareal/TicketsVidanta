@@ -22,6 +22,9 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         var runtime = cache.FindProfile(context.SourceSystem, context.Resort);
         if (runtime is null) return null;
         var profile = runtime.Profile;
+        if (!string.IsNullOrWhiteSpace(profile.QueryTemplate))
+            return await ResolveTemplateAsync(runtime, context, cancellationToken);
+
         var select = profile.FieldMappings
             .Where(x => AllowedRoles.Contains(x.Key))
             .Select(x => $"{Column(x.Value)} AS {Quote(x.Key)}").ToArray();
@@ -56,6 +59,48 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
             first ??= row;
             if (row.TryGetValue("ItemDescription", out var description) && description is not null)
                 items.Add(new(Convert.ToString(description)?.Trim() ?? "Concepto", Decimal(row, "ItemQuantity") ?? 1m, Decimal(row, "ItemAmount") ?? 0m));
+        }
+        if (first is null) return null;
+        var receipt = new CheckReceiptDetails(
+            Text(first, "GuestName"), Text(first, "Room") ?? context.Room, Text(first, "PointOfSale"),
+            Text(first, "CheckNumber") ?? context.CheckNumber, Date(first, "BusinessDate"), Time(first, "Time"),
+            Decimal(first, "Subtotal"), Decimal(first, "Tip"), Decimal(first, "Tax"), Text(first, "Header"), Text(first, "Footer"));
+        return new(items, Decimal(first, "Total"), Text(first, "Currency") ?? profile.CurrencyConstant, receipt);
+    }
+
+    private static async Task<CheckDetail?> ResolveTemplateAsync(
+        RuntimeTicketProfile runtime,
+        CheckProcessingContext context,
+        CancellationToken cancellationToken)
+    {
+        var profile = runtime.Profile;
+        var sql = ReadOnlySqlTemplateValidator.Validate(profile.QueryTemplate!);
+        await using var connection = new SqlConnection(runtime.ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand(sql, connection) { CommandTimeout = 30 };
+        command.Parameters.AddWithValue("@MaxRows", profile.MaxRows);
+        command.Parameters.AddWithValue("@ReservationId", context.ReservationId.Trim());
+        command.Parameters.AddWithValue("@CheckNumber", context.CheckNumber.Trim());
+        command.Parameters.AddWithValue("@Resort", context.Resort.Trim());
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var ordinals = Enumerable.Range(0, reader.FieldCount)
+            .Where(i => AllowedRoles.Contains(reader.GetName(i)))
+            .ToDictionary(i => reader.GetName(i), i => i, StringComparer.OrdinalIgnoreCase);
+        if (ordinals.Count == 0)
+            throw new InvalidOperationException("La consulta no devolvió ninguna columna canónica del ticket.");
+
+        Dictionary<string, object?>? first = null;
+        var items = new List<CheckItem>();
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            var row = ordinals.ToDictionary(
+                x => x.Key,
+                x => reader.IsDBNull(x.Value) ? null : reader.GetValue(x.Value),
+                StringComparer.OrdinalIgnoreCase);
+            first ??= row;
+            if (row.TryGetValue("ItemDescription", out var description) && description is not null)
+                items.Add(new(Convert.ToString(description)?.Trim() ?? "Concepto",
+                    Decimal(row, "ItemQuantity") ?? 1m, Decimal(row, "ItemAmount") ?? 0m));
         }
         if (first is null) return null;
         var receipt = new CheckReceiptDetails(

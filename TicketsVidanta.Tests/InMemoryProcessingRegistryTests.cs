@@ -42,4 +42,14 @@ public sealed class InMemoryProcessingRegistryTests
 
         Assert.True(await registry.HasAlreadyBeenProcessedAsync(key, CancellationToken.None));
     }
+
+    [Fact]
+    public void ProcessingKey_IgnoresReservationAndSourceSystem()
+    {
+        var first = new ProcessingKey("VILC", "45328427", "92670 Richardson, P20260929100101", "INSSIST_AYB");
+        var sameCheck = new ProcessingKey("vilc", "another-reservation", "92670 Richardson, P20260929100101", "OTHER");
+
+        Assert.Equal(first, sameCheck);
+        Assert.Equal(first.GetHashCode(), sameCheck.GetHashCode());
+    }
 }

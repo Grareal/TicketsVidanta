@@ -69,6 +69,7 @@ internal sealed class SqlConfigurationRepository(
             SELECT Id,Name,SourceSystem,Resort,ConnectionId,IsEnabled,BaseSchema,BaseTable,DetailSchema,DetailTable,
                    BaseJoinColumn,DetailJoinColumn,ReservationColumn,CheckNumberColumn,ResortColumn,FieldMappingsJson,
                    CurrencyConstant,MaxRows,UpdatedAtUtc
+                  ,QueryTemplate
             FROM dbo.ConfigTicketProfiles ORDER BY Name;
             """;
         await using var connection = connectionFactory.CreateConnection();
@@ -84,7 +85,7 @@ internal sealed class SqlConfigurationRepository(
     {
         ValidateProfile(request);
         var id = request.Id ?? Guid.NewGuid();
-        var mappings = request.FieldMappings!
+        var mappings = (request.FieldMappings ?? [])
             .Where(x => !string.IsNullOrWhiteSpace(x.Value))
             .ToDictionary(x => x.Key.Trim(), x => x.Value.Trim(), StringComparer.OrdinalIgnoreCase);
         const string sql = """
@@ -92,22 +93,23 @@ internal sealed class SqlConfigurationRepository(
               IsEnabled=@Enabled,BaseSchema=@BaseSchema,BaseTable=@BaseTable,DetailSchema=@DetailSchema,DetailTable=@DetailTable,
               BaseJoinColumn=@BaseJoinColumn,DetailJoinColumn=@DetailJoinColumn,ReservationColumn=@ReservationColumn,
               CheckNumberColumn=@CheckNumberColumn,ResortColumn=@ResortColumn,FieldMappingsJson=@Mappings,
-              CurrencyConstant=@Currency,MaxRows=@MaxRows,UpdatedAtUtc=SYSUTCDATETIME() WHERE Id=@Id;
+              CurrencyConstant=@Currency,MaxRows=@MaxRows,QueryTemplate=@QueryTemplate,UpdatedAtUtc=SYSUTCDATETIME() WHERE Id=@Id;
             IF @@ROWCOUNT=0 INSERT dbo.ConfigTicketProfiles
               (Id,Name,SourceSystem,Resort,ConnectionId,IsEnabled,BaseSchema,BaseTable,DetailSchema,DetailTable,
-               BaseJoinColumn,DetailJoinColumn,ReservationColumn,CheckNumberColumn,ResortColumn,FieldMappingsJson,CurrencyConstant,MaxRows)
+               BaseJoinColumn,DetailJoinColumn,ReservationColumn,CheckNumberColumn,ResortColumn,FieldMappingsJson,CurrencyConstant,MaxRows,QueryTemplate)
               VALUES(@Id,@Name,@SourceSystem,@Resort,@ConnectionId,@Enabled,@BaseSchema,@BaseTable,@DetailSchema,@DetailTable,
-               @BaseJoinColumn,@DetailJoinColumn,@ReservationColumn,@CheckNumberColumn,@ResortColumn,@Mappings,@Currency,@MaxRows);
+               @BaseJoinColumn,@DetailJoinColumn,@ReservationColumn,@CheckNumberColumn,@ResortColumn,@Mappings,@Currency,@MaxRows,@QueryTemplate);
             """;
         await ExecuteAsync(sql, cancellationToken,
             new("@Id", id), new("@Name", request.Name!.Trim()), new("@SourceSystem", request.SourceSystem!.Trim()),
             new("@Resort", Db(request.Resort)), new("@ConnectionId", request.ConnectionId), new("@Enabled", request.IsEnabled),
-            new("@BaseSchema", request.BaseSchema!.Trim()), new("@BaseTable", request.BaseTable!.Trim()),
+            new("@BaseSchema", request.BaseSchema?.Trim() ?? string.Empty), new("@BaseTable", request.BaseTable?.Trim() ?? string.Empty),
             new("@DetailSchema", Db(request.DetailSchema)), new("@DetailTable", Db(request.DetailTable)),
             new("@BaseJoinColumn", Db(request.BaseJoinColumn)), new("@DetailJoinColumn", Db(request.DetailJoinColumn)),
-            new("@ReservationColumn", request.ReservationColumn!.Trim()), new("@CheckNumberColumn", request.CheckNumberColumn!.Trim()),
+            new("@ReservationColumn", request.ReservationColumn?.Trim() ?? string.Empty), new("@CheckNumberColumn", request.CheckNumberColumn?.Trim() ?? string.Empty),
             new("@ResortColumn", Db(request.ResortColumn)), new("@Mappings", JsonSerializer.Serialize(mappings, JsonOptions)),
-            new("@Currency", Db(request.CurrencyConstant)), new("@MaxRows", request.MaxRows));
+            new("@Currency", Db(request.CurrencyConstant)), new("@MaxRows", request.MaxRows),
+            new("@QueryTemplate", Db(request.QueryTemplate)));
         return id;
     }
 
@@ -171,18 +173,24 @@ internal sealed class SqlConfigurationRepository(
     private static TicketProfile ReadProfile(SqlDataReader r) => new(
         r.GetGuid(0), r.GetString(1), r.GetString(2), GetString(r, 3), r.GetGuid(4), r.GetBoolean(5), r.GetString(6), r.GetString(7),
         GetString(r, 8), GetString(r, 9), GetString(r, 10), GetString(r, 11), r.GetString(12), r.GetString(13), GetString(r, 14),
-        JsonSerializer.Deserialize<Dictionary<string, string>>(r.GetString(15), JsonOptions) ?? new(), GetString(r, 16), r.GetInt32(17), r.GetDateTimeOffset(18));
+        JsonSerializer.Deserialize<Dictionary<string, string>>(r.GetString(15), JsonOptions) ?? new(), GetString(r, 16), r.GetInt32(17),
+        GetString(r, 19), r.GetDateTimeOffset(18));
 
     private static void ValidateProfile(SaveTicketProfileRequest request)
     {
         Required(request.Name, "nombre");
         var source = Required(request.SourceSystem, "sistema origen");
-        if (new[] { "MOCK", "LOCALSQL", "INSSIST_SPA", "INSSIST_KIDSCLUB" }.Contains(source, StringComparer.OrdinalIgnoreCase))
+        if (new[] { "MOCK", "LOCALSQL" }.Contains(source, StringComparer.OrdinalIgnoreCase))
             throw new ArgumentException("Ese sistema origen está reservado por un resolver integrado.");
-        Required(request.BaseSchema, "esquema base"); Required(request.BaseTable, "tabla base");
-        Required(request.ReservationColumn, "columna de reservación"); Required(request.CheckNumberColumn, "columna de cheque");
         if (request.ConnectionId == Guid.Empty) throw new ArgumentException("Selecciona una conexión.");
         if (request.MaxRows is < 1 or > 5000) throw new ArgumentException("MaxRows debe estar entre 1 y 5000.");
+        if (!string.IsNullOrWhiteSpace(request.QueryTemplate))
+        {
+            ReadOnlySqlTemplateValidator.Validate(request.QueryTemplate);
+            return;
+        }
+        Required(request.BaseSchema, "esquema base"); Required(request.BaseTable, "tabla base");
+        Required(request.ReservationColumn, "columna de reservación"); Required(request.CheckNumberColumn, "columna de cheque");
         if (request.FieldMappings is null || request.FieldMappings.Count == 0) throw new ArgumentException("Configura al menos un campo de salida.");
         var detailParts = new[] { request.DetailSchema, request.DetailTable, request.BaseJoinColumn, request.DetailJoinColumn };
         if (detailParts.Any(x => !string.IsNullOrWhiteSpace(x)) && detailParts.Any(string.IsNullOrWhiteSpace))

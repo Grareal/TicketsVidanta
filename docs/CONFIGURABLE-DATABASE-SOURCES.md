@@ -9,7 +9,7 @@ TC_GROUP + TRX_CODE
   -> SourceSystem
   -> perfil SourceSystem + RESORT (o perfil comodín)
   -> conexión SQL cifrada
-  -> tabla principal + detalle opcional
+  -> constructor visual (tabla + detalle) o SELECT avanzado
   -> filtros ReservationId / CheckNumber / Resort
   -> campos normalizados del ticket
   -> renderer existente
@@ -46,9 +46,61 @@ El módulo crea tres tablas:
    limitar cuánto puede devolver cada cheque.
 5. En **Rutas TC/TRX**, asocie el par contable al mismo `SourceSystem` del perfil.
 
+Use una clave lógica homogénea para `SourceSystem`, por ejemplo `INSSIST_AYB`, `INSSIST_SPA`,
+`SIMPHONY_AYB` o `MERKSYST_BOUTIQUE`. No representa solamente el proveedor: identifica el adaptador
+proveedor/servicio. El perfil puede tener una versión comodín y excepciones por resort.
+
+### Consultas avanzadas
+
+Active **Usar consulta SQL avanzada** cuando el ticket requiera más de dos tablas o reglas propias
+del sistema, por ejemplo `HOTCHE -> HOTCOM -> HOTAYB`. La consulta se guarda en el perfil, se recarga
+sin reiniciar y dispone de cuatro parámetros:
+
+- `@ReservationId`: valor de `RESV_NAME_ID`.
+- `@CheckNumber`: valor completo de `CHEQUE_NUMBER`.
+- `@Resort`: código de `RESORT`.
+- `@MaxRows`: límite configurado en el perfil.
+
+Debe comenzar con `SELECT` o `WITH`, incluir `TOP (@MaxRows)`, no contener comentarios, punto y coma
+ni instrucciones de escritura, y devolver columnas con los roles canónicos de la tabla inferior.
+El SQL es la pieza que cambia por sistema/servicio; el pipeline, renderer y carga OHIP no cambian.
+
+Antes de guardar, capture un `RESV_NAME_ID`, `CHEQUE_NUMBER` y `RESORT` reales en la sección
+**Probar sin guardar ni subir** y presione **Probar consulta**. La vista muestra hasta diez renglones,
+sus columnas y los alias recomendados faltantes. Esta acción solo ejecuta el `SELECT`: no genera
+imagen, no llama a OHIP y no modifica `PROCESADO`.
+
+Esqueleto para A&B Inssist (los nombres marcados `REEMPLAZAR_*` deben sustituirse por las columnas
+reales de esa base):
+
+```sql
+SELECT TOP (@MaxRows)
+    c.REEMPLAZAR_HUESPED AS GuestName,
+    c.REEMPLAZAR_HABITACION AS Room,
+    c.caja AS PointOfSale,
+    CONVERT(nvarchar(80), c.folio) AS CheckNumber,
+    c.fec_che AS BusinessDate,
+    m.REEMPLAZAR_DESCRIPCION AS ItemDescription,
+    m.REEMPLAZAR_CANTIDAD AS ItemQuantity,
+    m.REEMPLAZAR_IMPORTE AS ItemAmount,
+    c.REEMPLAZAR_TOTAL AS Total,
+    'MXN' AS Currency
+FROM dbo.hotche AS c
+INNER JOIN dbo.hotcom AS m
+    ON m.caja = c.caja AND m.folio = c.folio
+WHERE CONVERT(nvarchar(80), c.cargar_a) = @ReservationId
+  AND CONVERT(nvarchar(80), c.folio) = @CheckNumber
+ORDER BY c.fec_che DESC
+```
+
+Si `CHEQUE_NUMBER` contiene nombre/fecha además del folio, no compare directamente con `c.folio`:
+ajuste la expresión con la regla real o filtre primero por `cargar_a` y valide que el resultado sea
+unívoco. No use `LIKE '%...%'` sin una segunda condición estable porque puede mezclar cheques.
+
 Un perfil con resort exacto gana sobre un perfil del mismo sistema cuyo resort está vacío. Esto
-permite una configuración común y excepciones por propiedad. `MOCK`, `LOCALSQL`, `INSSIST_SPA` e
-`INSSIST_KIDSCLUB` están reservados para los resolvers implementados en código.
+permite una configuración común y excepciones por propiedad. Un perfil configurable tiene prioridad
+sobre el resolver integrado del mismo nombre, de modo que `INSSIST_SPA` e `INSSIST_KIDSCLUB` pueden
+migrarse gradualmente a SQL configurable. `MOCK` y `LOCALSQL` permanecen reservados.
 
 ## Seguridad
 
@@ -70,13 +122,18 @@ solo lectura.
 
 ## Construcción segura de consultas
 
-La vista no guarda SQL libre. El resolver genera una consulta parametrizada:
+El modo visual no guarda SQL libre. El modo avanzado guarda un `SELECT` sujeto a validación y ambos
+modos ejecutan valores parametrizados:
 
 - tablas y columnas aceptan solamente identificadores SQL simples y se delimitan con corchetes;
 - valores de reservación, cheque y resort usan parámetros;
 - la relación está limitada a igualdad entre una columna principal y una de detalle;
 - `TOP (@MaxRows)` impide lecturas sin límite, con máximo configurable de 5,000;
 - no se ejecutan escrituras en la base origen.
+
+La validación de texto es defensa adicional, no una frontera de seguridad completa. La cuenta de cada
+perfil debe conservar permisos `SELECT` exclusivamente. La conexión separada a la tabla financiera
+necesita `SELECT` y `UPDATE` solamente sobre `PROCESADO`, `PROCESADO_DATE` y `ESTATUS_PROCESADO`.
 
 Los metadatos se leen desde `sys.tables`, `sys.schemas`, `sys.columns` y `sys.types`. La cuenta
 necesita visibilidad de metadatos sobre los objetos que se configurarán.

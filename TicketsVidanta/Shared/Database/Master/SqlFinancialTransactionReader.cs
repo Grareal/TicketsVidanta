@@ -28,15 +28,26 @@ public sealed class SqlFinancialTransactionReader(
         }
 
         command.CommandText = $"""
-            SELECT TOP (@BatchSize)
+            ;WITH RoutedPending AS
+            (
+              SELECT
                 RESORT, TRX_DATE, BUSINESS_DATE, TRX_NO, TC_GROUP, TRX_CODE,
-                CHEQUE_NUMBER, RESV_NAME_ID, ROOM, REFERENCE, REMARK
+                CHEQUE_NUMBER, RESV_NAME_ID, ROOM, REFERENCE, REMARK,
+                ROW_NUMBER() OVER
+                  (PARTITION BY RESORT, CHEQUE_NUMBER ORDER BY TRX_DATE DESC, TRX_NO DESC) AS rn
             FROM [TCADBOPE].[dbo].[FINANCIAL_TRANSACTIONS_P_DET_CLOUD]
             WHERE ({string.Join(" OR ", predicates)})
+              AND ISNULL(PROCESADO, 0) = 0
               AND TRX_DATE >= DATEADD(DAY, -@LookbackDays, GETDATE())
               AND RESORT IS NOT NULL
               AND RESV_NAME_ID IS NOT NULL
               AND CHEQUE_NUMBER IS NOT NULL
+            )
+            SELECT TOP (@BatchSize)
+                RESORT, TRX_DATE, BUSINESS_DATE, TRX_NO, TC_GROUP, TRX_CODE,
+                CHEQUE_NUMBER, RESV_NAME_ID, ROOM, REFERENCE, REMARK
+            FROM RoutedPending
+            WHERE rn = 1
             ORDER BY TRX_DATE DESC;
             """;
         command.Parameters.AddWithValue("@BatchSize", sourceOptions.Value.BatchSize);

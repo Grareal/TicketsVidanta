@@ -21,8 +21,7 @@ public sealed class SqlMasterTransactionInbox(ISqlConnectionFactory connectionFa
                 WHERE NOT EXISTS
                 (
                     SELECT 1 FROM dbo.MasterTransactions WITH (UPDLOCK, HOLDLOCK)
-                    WHERE Resort=@Resort AND ReservationId=@ReservationId
-                      AND CheckNumber=@CheckNumber AND SourceSystem=@SourceSystem
+                    WHERE Resort=@Resort AND CheckNumber=@CheckNumber
                 );
                 """;
             await using var command = new SqlCommand(sql, connection);

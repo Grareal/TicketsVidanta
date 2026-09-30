@@ -72,7 +72,10 @@ TicketsVidanta/
 
 La tabla maestra entregará pendientes; el worker los reclamará por lote; cada registro se normalizará como `CheckProcessingContext`; el selector localizará exactamente un resolver; el resolver consultará el detalle propio del comercio; se validará `ReservationId`; se generará el PNG; se cargará en Opera Cloud; se registrará auditoría y se actualizará el registro maestro.
 
-`ReservationId` es la llave canónica actual para buscar la reserva. La idempotencia usa provisionalmente `Resort + ReservationId + CheckNumber + SourceSystem`; ambas decisiones deben validarse con negocio. `CorrelationId` es un `Guid` nuevo por intento y aparece en logs, auditoría y contratos externos.
+`ReservationId` se usa para localizar la reserva, pero no identifica un cheque. La llave de negocio e
+idempotencia es `Resort + CheckNumber`; por ello varias líneas financieras, referencias, códigos o
+reservaciones asociadas al mismo cheque producen una sola imagen y una sola carga. `CorrelationId`
+es un `Guid` nuevo por intento y aparece en logs, auditoría y contratos externos.
 
 ## Integración Inssist disponible
 
@@ -149,8 +152,9 @@ Siga [la guía de conexiones](TicketsVidanta/Shared/Database/Commerce/README.md)
 ## Configurador visual de fuentes
 
 Existe un módulo administrable en `/db-config` que permite guardar conexiones SQL cifradas,
-descubrir tablas y columnas, relacionar una tabla principal con una de detalle, elegir los campos de
-búsqueda y salida, limitar la cantidad de renglones y definir rutas `TC_GROUP + TRX_CODE`. Los cambios
+descubrir tablas y columnas, relacionar una tabla principal con una de detalle, o capturar una consulta
+`SELECT` avanzada para recorridos de varias tablas. Permite elegir campos de búsqueda y salida,
+limitar la cantidad de renglones y definir rutas `TC_GROUP + TRX_CODE`. Los cambios
 se recargan sin reiniciar y desembocan en el mismo pipeline de generación y carga a Opera Cloud.
 
 Ejecute el script `database/006-configurable-database-sources.sql` antes de usarlo. La vista está
@@ -168,7 +172,7 @@ vistas/stored procedures del servidor destino.
 ## Activar Opera Cloud
 
 `OperaCloudClient` implementa OAuth `client_credentials` y `password`, consulta de reserva y carga
-Base64 mediante `/med/config/v1/fileAttachments`. Complete los valores vacíos de `OperaCloud`
+de la imagen mediante `/csh/v1/hotels/{HotelId}/check/{checkNumber}`. Complete los valores vacíos de `OperaCloud`
 mediante secretos, cambie `OperaCloud:UseMock` a `false` y pruebe primero en un ambiente OHIP no
 productivo. La aplicación valida al arrancar que la configuración obligatoria esté completa.
 
