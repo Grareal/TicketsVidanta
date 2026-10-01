@@ -1,4 +1,7 @@
 using Microsoft.Data.SqlClient;
+using TicketsVidanta.Features.Tickets.ProcesarCheque;
+using TicketsVidanta.Shared.Models;
+using TicketsVidanta.Shared.TicketGeneration;
 
 namespace TicketsVidanta.Features.DatabaseConfiguration;
 
@@ -7,6 +10,7 @@ public static class Endpoint
     public static IEndpointRouteBuilder MapDatabaseConfigurationEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/db-config", () => Results.Redirect("/db-config/index.html"));
+        endpoints.MapGet("/ticket-formats", () => Results.Redirect("/ticket-formats/index.html"));
         var api = endpoints.MapGroup("/api/admin/db-config");
 
         api.MapGet("/connections", (IConfigurationRepository repository, CancellationToken ct) => repository.GetConnectionsAsync(ct));
@@ -48,6 +52,43 @@ public static class Endpoint
             IRuntimeConfigurationCache cache, CancellationToken ct) => await Execute(async () =>
             {
                 await repository.DeleteRouteAsync(id, ct); await cache.ReloadAsync(ct); return Results.NoContent();
+            }));
+
+        api.MapGet("/templates", (IConfigurationRepository repository, CancellationToken ct) => repository.GetTemplatesAsync(ct));
+        api.MapPost("/templates", async (SaveTicketTemplateRequest request, IConfigurationRepository repository,
+            IRuntimeConfigurationCache cache, CancellationToken ct) => await Execute(async () =>
+            {
+                var id = await repository.SaveTemplateAsync(request, ct); await cache.ReloadAsync(ct); return Results.Ok(new { id });
+            }));
+        api.MapDelete("/templates/{id:guid}", async (Guid id, IConfigurationRepository repository,
+            IRuntimeConfigurationCache cache, CancellationToken ct) => await Execute(async () =>
+            {
+                await repository.DeleteTemplateAsync(id, ct); await cache.ReloadAsync(ct); return Results.NoContent();
+            }));
+        api.MapPost("/templates/preview", async (SaveTicketTemplateRequest request, CancellationToken ct) =>
+            await Execute(() =>
+            {
+                ct.ThrowIfCancellationRequested();
+                TicketTemplateValidator.Validate(request);
+                var context = new CheckProcessingContext
+                {
+                    Resort = string.IsNullOrWhiteSpace(request.Resort) ? "ACAPULCO" : request.Resort.Trim(),
+                    ReservationId = "468830 23",
+                    CheckNumber = "221650",
+                    Room = "1519",
+                    SourceSystem = string.IsNullOrWhiteSpace(request.SourceSystem) ? "INSSIST_AYB" : request.SourceSystem.Trim(),
+                    CorrelationId = Guid.NewGuid()
+                };
+                var detail = new CheckDetail(
+                    [new CheckItem("JUEGO 2X1", 1m, 500m), new CheckItem("BEBIDA SIN AZUCAR", 2m, 159.40m)],
+                    659.40m,
+                    "MXN",
+                    new CheckReceiptDetails(
+                        GuestName: "Huesped de ejemplo", Room: "1519", PointOfSale: request.PointOfSale ?? "P5H",
+                        CheckNumber: "221650", BusinessDate: new DateTime(2026, 10, 1), Time: new TimeSpan(13, 38, 0),
+                        Subtotal: 568.45m, Tip: 0m, Tax: 90.95m, Server: "01", Table: "R1", GuestCount: "1", Turn: "1", CopyNumber: "1"));
+                var ticket = SvgTicketRenderer.Render(context, detail, request.Layout!);
+                return Task.FromResult(Results.File(ticket.Content.ToArray(), ticket.MimeType));
             }));
 
         return endpoints;

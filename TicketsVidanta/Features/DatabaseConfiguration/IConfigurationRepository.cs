@@ -1,5 +1,7 @@
 namespace TicketsVidanta.Features.DatabaseConfiguration;
 
+using TicketsVidanta.Shared.TicketGeneration;
+
 internal interface IConfigurationRepository
 {
     Task<IReadOnlyList<DatabaseConnectionSummary>> GetConnectionsAsync(CancellationToken cancellationToken);
@@ -12,5 +14,8 @@ internal interface IConfigurationRepository
     Task<IReadOnlyList<TransactionRoute>> GetRoutesAsync(CancellationToken cancellationToken);
     Task<Guid> SaveRouteAsync(SaveTransactionRouteRequest request, CancellationToken cancellationToken);
     Task DeleteRouteAsync(Guid id, CancellationToken cancellationToken);
+    Task<IReadOnlyList<TicketTemplate>> GetTemplatesAsync(CancellationToken cancellationToken);
+    Task<Guid> SaveTemplateAsync(SaveTicketTemplateRequest request, CancellationToken cancellationToken);
+    Task DeleteTemplateAsync(Guid id, CancellationToken cancellationToken);
     Task<RuntimeConfigurationSnapshot> GetRuntimeSnapshotAsync(CancellationToken cancellationToken);
 }

@@ -2,25 +2,41 @@ using TicketsVidanta.Features.Tickets.ProcesarCheque;
 
 namespace TicketsVidanta.Shared.Processing;
 
-/// <summary>Clave lógica provisional utilizada para idempotencia.</summary>
-public readonly record struct ProcessingKey(
-    string Resort,
-    string ReservationId,
-    string CheckNumber,
-    string SourceSystem)
+/// <summary>
+/// Identidad de una carga a Opera. SourceSystem se conserva para resolver y auditar,
+/// pero no distingue cargas: varias filas contables del mismo cheque se cargan una sola vez.
+/// </summary>
+public readonly struct ProcessingKey : IEquatable<ProcessingKey>
 {
+    public ProcessingKey(string resort, string reservationId, string checkNumber, string sourceSystem)
+    {
+        Resort = resort.Trim();
+        ReservationId = reservationId.Trim();
+        CheckNumber = checkNumber.Trim();
+        SourceSystem = sourceSystem.Trim();
+    }
+
+    public string Resort { get; }
+    public string ReservationId { get; }
+    public string CheckNumber { get; }
+    public string SourceSystem { get; }
+
     public static ProcessingKey From(CheckProcessingContext context) =>
         new(context.Resort, context.ReservationId, context.CheckNumber, context.SourceSystem);
 
-    // TODO [BUSINESS-RULE]:
-    // Pendiente confirmar la llave definitiva de idempotencia.
-    //
-    // QUÉ DEBE COLOCARSE AQUÍ:
-    // Los campos normalizados y reglas de comparación acordados con negocio y los sistemas origen.
-    //
-    // EJEMPLO ESPERADO:
-    // Una especificación que confirme o reemplace Resort + ReservationId + CheckNumber + SourceSystem.
-    //
-    // NO IMPLEMENTAR HASTA:
-    // Validar duplicados, reaperturas y reutilización de números de cheque con los responsables.
+    public bool Equals(ProcessingKey other) =>
+        Same(Resort, other.Resort) && Same(ReservationId, other.ReservationId) && Same(CheckNumber, other.CheckNumber);
+
+    public override bool Equals(object? obj) => obj is ProcessingKey other && Equals(other);
+
+    public override int GetHashCode() => HashCode.Combine(
+        StringComparer.OrdinalIgnoreCase.GetHashCode(Resort),
+        StringComparer.OrdinalIgnoreCase.GetHashCode(ReservationId),
+        StringComparer.OrdinalIgnoreCase.GetHashCode(CheckNumber));
+
+    public static bool operator ==(ProcessingKey left, ProcessingKey right) => left.Equals(right);
+    public static bool operator !=(ProcessingKey left, ProcessingKey right) => !left.Equals(right);
+
+    private static bool Same(string left, string right) =>
+        string.Equals(left.Trim(), right.Trim(), StringComparison.OrdinalIgnoreCase);
 }

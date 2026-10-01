@@ -77,6 +77,7 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<DatabaseMetadataService>();
             services.AddSingleton<RuntimeConfigurationCache>();
             services.AddSingleton<IRuntimeConfigurationCache>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
+            services.AddSingleton<ITicketTemplateCatalog>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
             services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
         }
         else
@@ -84,6 +85,7 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<IProcessingRegistry, InMemoryProcessingRegistry>();
             services.AddSingleton<IAuditService, InMemoryAuditService>();
             services.AddSingleton<IMasterTransactionRepository, MockMasterTransactionRepository>();
+            services.AddSingleton<ITicketTemplateCatalog, DefaultTicketTemplateCatalog>();
         }
         services.AddSingleton<ICommerceConnectionCatalog, OptionsCommerceConnectionCatalog>();
         services.AddSingleton<ICommerceSqlConnectionFactory, CommerceSqlConnectionFactory>();

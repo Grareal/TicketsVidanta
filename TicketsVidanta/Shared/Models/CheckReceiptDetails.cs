@@ -11,4 +11,9 @@ public sealed record CheckReceiptDetails(
     decimal? Tip = null,
     decimal? Tax = null,
     string? Header = null,
-    string? Footer = null);
+    string? Footer = null,
+    string? Server = null,
+    string? Table = null,
+    string? GuestCount = null,
+    string? Turn = null,
+    string? CopyNumber = null);

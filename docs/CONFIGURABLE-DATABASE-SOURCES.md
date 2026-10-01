@@ -21,7 +21,7 @@ La vista está en `/db-config` cuando `Database:UseSqlPersistence=true` y
 
 ## Preparación
 
-Ejecute `database/006-configurable-database-sources.sql`, o vuelva a ejecutar el instalador idempotente:
+Vuelva a ejecutar el instalador idempotente, que incluye los scripts `006`, `007` y `008`:
 
 ```powershell
 .\database\install-local.ps1 -ServerInstance '.\SQLEXPRESS'
@@ -70,13 +70,20 @@ solo lectura.
 
 ## Construcción segura de consultas
 
-La vista no guarda SQL libre. El resolver genera una consulta parametrizada:
+El modo estructurado genera una consulta parametrizada:
 
 - tablas y columnas aceptan solamente identificadores SQL simples y se delimitan con corchetes;
 - valores de reservación, cheque y resort usan parámetros;
 - la relación está limitada a igualdad entre una columna principal y una de detalle;
 - `TOP (@MaxRows)` impide lecturas sin límite, con máximo configurable de 5,000;
 - no se ejecutan escrituras en la base origen.
+
+Para flujos de tres o más tablas existe el modo **Consulta personalizada**. Solo acepta una sentencia
+que empiece con `SELECT` o `WITH`, bloquea operaciones de escritura y comentarios, aplica el máximo
+de filas y entrega `@ReservationId`, `@CheckNumber` y `@Resort` como parámetros. Como esta defensa
+no sustituye permisos de base de datos, la conexión debe pertenecer obligatoriamente a una cuenta de
+solo lectura. Consulte `GUIA-CONFIGURACION-POR-CODIGO.md` para el contrato de alias y el ejemplo de
+Acapulco.
 
 Los metadatos se leen desde `sys.tables`, `sys.schemas`, `sys.columns` y `sys.types`. La cuenta
 necesita visibilidad de metadatos sobre los objetos que se configurarán.
@@ -89,6 +96,7 @@ necesita visibilidad de metadatos sobre los objetos que se configurarán.
 | `BusinessDate`, `Time` | Fecha y hora |
 | `Subtotal`, `Tip`, `Tax`, `Total`, `Currency` | Resumen monetario |
 | `Header`, `Footer` | Encabezado y leyenda |
+| `Server`, `Table`, `GuestCount`, `Turn`, `CopyNumber` | Mesero, mesa, personas, turno y copia |
 | `ItemDescription`, `ItemQuantity`, `ItemAmount` | Renglones del consumo |
 
 Cuando no existe columna de moneda puede usarse la moneda fija del perfil. Cantidad toma `1` y
@@ -97,7 +105,7 @@ importe `0` cuando sus columnas no están mapeadas o contienen `NULL`.
 ## Operación y diagnóstico
 
 Guardar o eliminar conexiones, perfiles o rutas recarga una instantánea en memoria; no requiere
-reiniciar. Al arrancar, el servicio carga todas las entradas habilitadas. Si el script `006` no se ha
+reiniciar. Al arrancar, el servicio carga todas las entradas habilitadas. Si los scripts `006` y `007` no se han
 ejecutado, el servicio conserva las reglas estáticas, registra una advertencia y la vista responderá
 con el error SQL correspondiente.
 

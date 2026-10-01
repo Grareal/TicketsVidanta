@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Formatos de ticket · TicketsVidanta</title>
+  <style>
+    :root{font-family:Inter,Segoe UI,sans-serif;color:#172231;background:#eef3f6;--navy:#16364d;--teal:#087e8b;--line:#d6e1e8;--danger:#b42318}*{box-sizing:border-box}body{margin:0}
+    header{padding:24px max(20px,calc((100% - 1380px)/2));background:linear-gradient(120deg,#102a43,#16697a);color:#fff}header h1{margin:0 0 6px;font-size:25px}header p{margin:0;opacity:.82}header a{color:#b9f1f5}
+    main{max-width:1380px;margin:20px auto;padding:0 18px}.layout{display:grid;grid-template-columns:minmax(520px,1.25fr) minmax(380px,.75fr);gap:18px}.card{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px;box-shadow:0 4px 15px #102a4310;margin-bottom:16px}h2{font-size:18px;margin:0 0 12px}h3{font-size:14px;color:#31546b;margin:20px 0 8px;border-bottom:1px solid #e8eef2;padding-bottom:5px}
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px}.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}label{display:block;font-size:12px;font-weight:650;color:#486581;margin:8px 0 4px}input,textarea{width:100%;padding:8px 9px;border:1px solid #b9c8d2;border-radius:6px;background:#fff}textarea{min-height:74px;resize:vertical}.check-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px 12px}.check{display:flex;gap:7px;align-items:center;font-size:12px;color:#334e68}.check input{width:auto}
+    button{border:0;border-radius:6px;background:var(--teal);color:#fff;padding:9px 14px;font-weight:650;cursor:pointer}.secondary{background:#486581}.danger{background:#fff;color:var(--danger);border:1px solid #edb8b3;padding:5px 8px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:15px}.status{min-height:22px;margin-top:8px;color:#18794e}.error{color:var(--danger)}
+    .preview{position:sticky;top:12px}iframe{width:100%;height:720px;border:1px solid #b9c8d2;background:#dce3e7;border-radius:8px}.muted{font-size:12px;color:#627d98}.list{width:100%;border-collapse:collapse;font-size:12px}.list td,.list th{padding:8px 6px;border-bottom:1px solid #e7edf1;text-align:left}.pill{display:inline-block;padding:2px 7px;border-radius:10px;background:#e3f4f1;color:#087763}
+    @media(max-width:980px){.layout{grid-template-columns:1fr}.preview{position:static}.grid4{grid-template-columns:1fr 1fr}}@media(max-width:620px){.grid2,.grid3,.grid4,.check-grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+<header><h1>Configurador de formatos de ticket</h1><p>Plantillas térmicas por sistema, hotel y punto de venta · <a href="/db-config">Configurar fuentes de datos</a></p></header>
+<main><div class="layout">
+  <div>
+    <form id="form" class="card"><h2>Plantilla</h2><input id="id" type="hidden">
+      <div class="grid2"><div><label>Nombre de la plantilla</label><input id="name" required maxlength="120"></div><div><label>Sistema origen (vacío = cualquiera)</label><input id="source" maxlength="80" placeholder="INSSIST_AYB_ACA"></div></div>
+      <div class="grid2"><div><label>Resort/hotel (vacío = cualquiera)</label><input id="resort" maxlength="40" placeholder="ACAPULCO"></div><div><label>Punto de venta (vacío = cualquiera)</label><input id="pos" maxlength="120" placeholder="P5H"></div></div>
+      <label class="check"><input id="enabled" type="checkbox" checked> Plantilla habilitada</label>
+
+      <h3>Papel y tipografía</h3><div class="grid4"><div><label>Ancho px</label><input id="paperWidth" type="number" min="280" max="1600"></div><div><label>Margen px</label><input id="padding" type="number" min="0" max="160"></div><div><label>Fuente base</label><input id="baseFontSize" type="number" min="8" max="40"></div><div><label>Fuente título</label><input id="headerFontSize" type="number" min="10" max="72"></div></div>
+      <div class="grid2"><div><label>Familia tipográfica</label><input id="fontFamily"></div><div><label>Alto de renglón</label><input id="lineHeight" type="number" min="8" max="80"></div></div>
+      <div class="grid3"><div><label>Texto</label><input id="textColor" type="color"></div><div><label>Fondo</label><input id="backgroundColor" type="color"></div><div><label>Separadores</label><input id="separatorColor" type="color"></div></div>
+
+      <h3>Encabezado fiscal</h3><div class="grid2"><div><label>Título</label><input id="title"></div><div><label>Razón social</label><input id="legalName"></div><div><label>RFC</label><input id="taxId"></div><div><label>Régimen fiscal</label><input id="taxRegime"></div></div>
+      <label>Dirección (una línea por renglón)</label><textarea id="addressLines"></textarea><label>Texto adicional de encabezado</label><textarea id="headerText"></textarea>
+
+      <h3>Columnas y etiquetas</h3><div class="grid3"><div><label>Cantidad</label><input id="quantityLabel"></div><div><label>Descripción</label><input id="descriptionLabel"></div><div><label>Importe</label><input id="amountLabel"></div></div>
+      <div class="grid3"><div><label>Folio</label><input id="checkLabel"></div><div><label>Fecha</label><input id="dateLabel"></div><div><label>Formato fecha</label><input id="dateFormat"></div></div>
+      <div class="grid2"><div><label>Habitación</label><input id="roomLabel"></div><div><label>Huésped</label><input id="guestLabel"></div><div><label>Firma</label><input id="signatureLabel"></div><div><label>Propina</label><input id="tipLabel"></div><div><label>Total</label><input id="totalLabel"></div></div>
+
+      <h3>Leyendas</h3><label>Leyenda de propina</label><textarea id="tipLegend"></textarea><label>Leyenda de impuestos</label><textarea id="taxLegend"></textarea><label>Texto legal español</label><textarea id="legalTextEs"></textarea><label>Texto legal inglés</label><textarea id="legalTextEn"></textarea><label>Pie adicional</label><textarea id="footerText"></textarea>
+
+      <h3>Secciones visibles</h3><div id="checks" class="check-grid"></div>
+      <div class="actions"><button type="button" id="preview">Actualizar vista previa</button><button>Guardar plantilla</button><button type="button" class="secondary" id="clear">Nueva</button></div><div id="status" class="status"></div>
+    </form>
+    <div class="card"><h2>Plantillas guardadas</h2><p class="muted">La coincidencia más específica gana: sistema + resort + POS, después sistema + resort, y finalmente comodines.</p><table class="list"><thead><tr><th>Nombre</th><th>Coincidencia</th><th>Estado</th><th></th></tr></thead><tbody id="list"></tbody></table></div>
+  </div>
+  <aside class="card preview"><h2>Vista previa</h2><p class="muted">Utiliza datos de muestra. El alto crece automáticamente según las partidas y leyendas.</p><iframe id="frame" title="Vista previa del ticket"></iframe></aside>
+</div></main>
+<script>
+const api='/api/admin/db-config';let templates=[],previewUrl;const $=id=>document.getElementById(id);
+const booleanFields=['showGuest','showRoom','showPointOfSale','showServer','showTable','showGuestCount','showTurn','showSubtotal','showTax','showTip','showTipLine','showSignatureLine','showAmountInWords'];
+const booleanLabels={showGuest:'Huésped',showRoom:'Habitación',showPointOfSale:'Punto de venta',showServer:'Mesero',showTable:'Mesa',showGuestCount:'Personas',showTurn:'Turno',showSubtotal:'Subtotal',showTax:'Impuestos',showTip:'Propina',showTipLine:'Línea de propina',showSignatureLine:'Línea de firma',showAmountInWords:'Total en letra'};
+const defaultLayout={paperWidth:420,padding:22,fontFamily:'Courier New, monospace',baseFontSize:14,headerFontSize:22,lineHeight:20,textColor:'#111111',backgroundColor:'#ffffff',separatorColor:'#777777',title:'VIDANTA',legalName:'',taxId:'',taxRegime:'',addressLines:[],headerText:'Comprobante de consumo',footerText:'',tipLegend:'Propina no incluida / Tip not included',taxLegend:'Impuestos incluidos / Taxes included',legalTextEs:'Al firmar este recibo acepto y reconozco que los consumos y cargos aquí señalados son correctos.',legalTextEn:'By signing this voucher I accept and acknowledge that the listed charges are correct.',quantityLabel:'Cant',descriptionLabel:'Descripción',amountLabel:'Importe',checkLabel:'Folio',dateLabel:'Fecha',roomLabel:'Habitación/Room',guestLabel:'Nombre/Name',signatureLabel:'Firma/Signature',tipLabel:'Propina/Tip',totalLabel:'TOTAL',dateFormat:'dd/MM/yyyy',...Object.fromEntries(booleanFields.map(x=>[x,true]))};
+$('checks').innerHTML=booleanFields.map(x=>`<label class="check"><input type="checkbox" id="${x}"> ${booleanLabels[x]}</label>`).join('');
+const textFields=['fontFamily','textColor','backgroundColor','separatorColor','title','legalName','taxId','taxRegime','headerText','footerText','tipLegend','taxLegend','legalTextEs','legalTextEn','quantityLabel','descriptionLabel','amountLabel','checkLabel','dateLabel','roomLabel','guestLabel','signatureLabel','tipLabel','totalLabel','dateFormat'];
+const numberFields=['paperWidth','padding','baseFontSize','headerFontSize','lineHeight'];
+function layoutFromForm(){let x={};textFields.forEach(k=>x[k]=$(k).value);numberFields.forEach(k=>x[k]=Number($(k).value));booleanFields.forEach(k=>x[k]=$(k).checked);x.addressLines=$('addressLines').value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean);return x}
+function fillLayout(x){x={...defaultLayout,...x};textFields.forEach(k=>$(k).value=x[k]??'');numberFields.forEach(k=>$(k).value=x[k]);booleanFields.forEach(k=>$(k).checked=!!x[k]);$('addressLines').value=(x.addressLines||[]).join('\n')}
+function body(){return{id:$('id').value||null,name:$('name').value,sourceSystem:$('source').value||null,resort:$('resort').value||null,pointOfSale:$('pos').value||null,isEnabled:$('enabled').checked,layout:layoutFromForm()}}
+async function request(path,options){let r=await fetch(api+path,{headers:{'Content-Type':'application/json'},...options});if(!r.ok){let x=await r.json().catch(()=>({}));throw new Error(x.message||x.detail||`HTTP ${r.status}`)}return r.status===204?null:r.json()}
+function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function setStatus(message,error=false){$('status').textContent=message;$('status').className='status'+(error?' error':'')}
+async function load(){templates=await request('/templates');$('list').innerHTML=templates.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.sourceSystem||'*')} / ${esc(x.resort||'*')} / ${esc(x.pointOfSale||'*')}</td><td><span class="pill">${x.isEnabled?'Activa':'Inactiva'}</span></td><td><button type="button" class="secondary" onclick="editTemplate('${x.id}')">Editar</button> <button type="button" class="danger" onclick="removeTemplate('${x.id}')">Eliminar</button></td></tr>`).join('')}
+async function updatePreview(){try{let r=await fetch(api+'/templates/preview',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body())});if(!r.ok){let x=await r.json().catch(()=>({}));throw new Error(x.message||x.detail||`HTTP ${r.status}`)}let blob=await r.blob();if(previewUrl)URL.revokeObjectURL(previewUrl);previewUrl=URL.createObjectURL(blob);$('frame').src=previewUrl;setStatus('Vista previa actualizada.')}catch(e){setStatus(e.message,true)}}
+function reset(){ $('form').reset();$('id').value='';$('name').value='Formato térmico';$('enabled').checked=true;fillLayout(defaultLayout);setStatus('');updatePreview()}
+window.editTemplate=id=>{let x=templates.find(t=>t.id===id);$('id').value=x.id;$('name').value=x.name;$('source').value=x.sourceSystem||'';$('resort').value=x.resort||'';$('pos').value=x.pointOfSale||'';$('enabled').checked=x.isEnabled;fillLayout(x.layout);scrollTo({top:0,behavior:'smooth'});updatePreview()};
+window.removeTemplate=async id=>{if(!confirm('¿Eliminar esta plantilla?'))return;try{await request('/templates/'+id,{method:'DELETE'});await load();reset()}catch(e){setStatus(e.message,true)}};
+$('form').onsubmit=async e=>{e.preventDefault();try{await request('/templates',{method:'POST',body:JSON.stringify(body())});setStatus('Plantilla guardada y activa para nuevos tickets.');await load()}catch(x){setStatus(x.message,true)}};
+$('preview').onclick=updatePreview;$('clear').onclick=reset;reset();load().catch(e=>setStatus(e.message,true));
+</script></body></html>

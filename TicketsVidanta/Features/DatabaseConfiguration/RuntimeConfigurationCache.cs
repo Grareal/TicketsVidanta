@@ -1,10 +1,11 @@
 using Microsoft.Data.SqlClient;
 using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Routing;
+using TicketsVidanta.Shared.TicketGeneration;
 
 namespace TicketsVidanta.Features.DatabaseConfiguration;
 
-internal interface IRuntimeConfigurationCache
+internal interface IRuntimeConfigurationCache : ITicketTemplateCatalog
 {
     RuntimeTicketProfile? FindProfile(string sourceSystem, string resort);
     string? Resolve(string? tcGroup, string? trxCode);
@@ -40,20 +41,25 @@ internal sealed class RuntimeConfigurationCache(
 
     public IReadOnlyList<TransactionRoute> GetRoutes() => Volatile.Read(ref _snapshot).Routes;
 
+    public TicketTemplate Find(string sourceSystem, string resort, string? pointOfSale)
+        => TicketTemplateSelector.Select(Volatile.Read(ref _snapshot).Templates, sourceSystem, resort, pointOfSale);
+
     public async Task ReloadAsync(CancellationToken cancellationToken)
     {
         var snapshot = await repository.GetRuntimeSnapshotAsync(cancellationToken);
         Volatile.Write(ref _snapshot, snapshot);
-        logger.LogInformation("Configuración dinámica recargada. Routes={Routes}, Profiles={Profiles}", snapshot.Routes.Count, snapshot.Profiles.Count);
+        logger.LogInformation("Configuración dinámica recargada. Routes={Routes}, Profiles={Profiles}, Templates={Templates}",
+            snapshot.Routes.Count, snapshot.Profiles.Count, snapshot.Templates.Count);
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
         try { await ReloadAsync(cancellationToken); }
-        catch (SqlException exception) { logger.LogWarning(exception, "No se pudo cargar configuración dinámica. Ejecute el script 006."); }
+        catch (SqlException exception) { logger.LogWarning(exception, "No se pudo cargar configuración dinámica. Ejecute database/install-local.ps1."); }
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
 }
 
 internal sealed class ConfigurableTransactionSourceRouter(

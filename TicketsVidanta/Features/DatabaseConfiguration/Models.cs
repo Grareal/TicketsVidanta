@@ -18,16 +18,17 @@ public sealed record TicketProfile(
     string? Resort,
     Guid ConnectionId,
     bool IsEnabled,
-    string BaseSchema,
-    string BaseTable,
+    string? BaseSchema,
+    string? BaseTable,
     string? DetailSchema,
     string? DetailTable,
     string? BaseJoinColumn,
     string? DetailJoinColumn,
-    string ReservationColumn,
-    string CheckNumberColumn,
+    string? ReservationColumn,
+    string? CheckNumberColumn,
     string? ResortColumn,
     IReadOnlyDictionary<string, string> FieldMappings,
+    string? CustomQuerySql,
     string? CurrencyConstant,
     int MaxRows,
     DateTimeOffset UpdatedAtUtc);
@@ -49,6 +50,7 @@ public sealed record SaveTicketProfileRequest(
     string? CheckNumberColumn,
     string? ResortColumn,
     Dictionary<string, string>? FieldMappings,
+    string? CustomQuerySql,
     string? CurrencyConstant,
     int MaxRows = 250);
 
@@ -65,7 +67,8 @@ internal sealed record RuntimeTicketProfile(TicketProfile Profile, string Connec
 
 internal sealed record RuntimeConfigurationSnapshot(
     IReadOnlyList<TransactionRoute> Routes,
-    IReadOnlyList<RuntimeTicketProfile> Profiles)
+    IReadOnlyList<RuntimeTicketProfile> Profiles,
+    IReadOnlyList<TicketsVidanta.Shared.TicketGeneration.TicketTemplate> Templates)
 {
-    public static RuntimeConfigurationSnapshot Empty { get; } = new([], []);
+    public static RuntimeConfigurationSnapshot Empty { get; } = new([], [], []);
 }

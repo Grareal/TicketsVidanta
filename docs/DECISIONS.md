@@ -22,7 +22,8 @@
 
 ## ADR-006: idempotencia obligatoria
 
-**Estado:** aceptada; implementación productiva pendiente. En memoria protege una instancia. La llave y almacenamiento persistente pueden cambiar.
+**Estado:** implementada en memoria y SQL. La llave de carga es `Resort + ReservationId + CheckNumber`;
+`SourceSystem` se conserva para resolver y auditar, pero no genera una segunda carga del mismo cheque.
 
 ## ADR-007: CorrelationId para trazabilidad
 

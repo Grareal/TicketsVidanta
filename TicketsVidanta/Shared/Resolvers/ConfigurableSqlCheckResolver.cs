@@ -12,7 +12,8 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
     private static readonly HashSet<string> AllowedRoles = new(StringComparer.OrdinalIgnoreCase)
     {
         "GuestName", "Room", "PointOfSale", "CheckNumber", "BusinessDate", "Time", "Subtotal", "Tip", "Tax",
-        "Total", "Currency", "Header", "Footer", "ItemDescription", "ItemQuantity", "ItemAmount"
+        "Total", "Currency", "Header", "Footer", "Server", "Table", "GuestCount", "Turn", "CopyNumber",
+        "ItemDescription", "ItemQuantity", "ItemAmount"
     };
 
     public bool CanHandle(CheckProcessingContext context) => cache.FindProfile(context.SourceSystem, context.Resort) is not null;
@@ -22,18 +23,8 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         var runtime = cache.FindProfile(context.SourceSystem, context.Resort);
         if (runtime is null) return null;
         var profile = runtime.Profile;
-        var select = profile.FieldMappings
-            .Where(x => AllowedRoles.Contains(x.Key))
-            .Select(x => $"{Column(x.Value)} AS {Quote(x.Key)}").ToArray();
-        if (select.Length == 0) throw new InvalidOperationException("El perfil no contiene campos reconocidos.");
-
-        var sql = $"SELECT TOP (@MaxRows) {string.Join(',', select)} FROM {Table(profile.BaseSchema, profile.BaseTable)} b";
-        if (!string.IsNullOrWhiteSpace(profile.DetailTable))
-            sql += $" LEFT JOIN {Table(profile.DetailSchema!, profile.DetailTable)} d ON b.{Quote(profile.BaseJoinColumn!)}=d.{Quote(profile.DetailJoinColumn!)}";
-        sql += $" WHERE CONVERT(nvarchar(256),{Column(profile.ReservationColumn)})=@ReservationId" +
-               $" AND CONVERT(nvarchar(256),{Column(profile.CheckNumberColumn)})=@CheckNumber";
-        if (!string.IsNullOrWhiteSpace(profile.ResortColumn))
-            sql += $" AND CONVERT(nvarchar(256),{Column(profile.ResortColumn)})=@Resort";
+        var customQuery = !string.IsNullOrWhiteSpace(profile.CustomQuerySql);
+        var sql = customQuery ? BuildCustomQuery(profile) : BuildStructuredQuery(profile);
 
         await using var connection = new SqlConnection(runtime.ConnectionString);
         await connection.OpenAsync(cancellationToken);
@@ -45,14 +36,17 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var items = new List<CheckItem>();
         Dictionary<string, object?>? first = null;
+        var resultRoles = Enumerable.Range(0, reader.FieldCount)
+            .Select(index => (Index: index, Role: reader.GetName(index)))
+            .Where(x => AllowedRoles.Contains(x.Role))
+            .ToArray();
+        if (resultRoles.Length == 0)
+            throw new InvalidOperationException("La consulta no devolvio alias de ticket reconocidos.");
         while (await reader.ReadAsync(cancellationToken))
         {
             var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var role in profile.FieldMappings.Keys.Where(AllowedRoles.Contains))
-            {
-                var ordinal = reader.GetOrdinal(role);
-                row[role] = reader.IsDBNull(ordinal) ? null : reader.GetValue(ordinal);
-            }
+            foreach (var (index, role) in resultRoles)
+                row[role] = reader.IsDBNull(index) ? null : reader.GetValue(index);
             first ??= row;
             if (row.TryGetValue("ItemDescription", out var description) && description is not null)
                 items.Add(new(Convert.ToString(description)?.Trim() ?? "Concepto", Decimal(row, "ItemQuantity") ?? 1m, Decimal(row, "ItemAmount") ?? 0m));
@@ -61,8 +55,35 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         var receipt = new CheckReceiptDetails(
             Text(first, "GuestName"), Text(first, "Room") ?? context.Room, Text(first, "PointOfSale"),
             Text(first, "CheckNumber") ?? context.CheckNumber, Date(first, "BusinessDate"), Time(first, "Time"),
-            Decimal(first, "Subtotal"), Decimal(first, "Tip"), Decimal(first, "Tax"), Text(first, "Header"), Text(first, "Footer"));
+            Decimal(first, "Subtotal"), Decimal(first, "Tip"), Decimal(first, "Tax"), Text(first, "Header"), Text(first, "Footer"),
+            Text(first, "Server"), Text(first, "Table"), Text(first, "GuestCount"), Text(first, "Turn"), Text(first, "CopyNumber"));
         return new(items, Decimal(first, "Total"), Text(first, "Currency") ?? profile.CurrencyConstant, receipt);
+    }
+
+    private static string BuildCustomQuery(TicketProfile profile)
+    {
+        var query = ConfiguredQueryValidator.ValidateAndNormalize(profile.CustomQuerySql!);
+        return $"SET ROWCOUNT @MaxRows;\n{query};\nSET ROWCOUNT 0;";
+    }
+
+    private static string BuildStructuredQuery(TicketProfile profile)
+    {
+        var select = profile.FieldMappings
+            .Where(x => AllowedRoles.Contains(x.Key))
+            .Select(x => $"{Column(x.Value)} AS {Quote(x.Key)}").ToArray();
+        if (select.Length == 0) throw new InvalidOperationException("El perfil no contiene campos reconocidos.");
+        if (string.IsNullOrWhiteSpace(profile.BaseSchema) || string.IsNullOrWhiteSpace(profile.BaseTable) ||
+            string.IsNullOrWhiteSpace(profile.ReservationColumn) || string.IsNullOrWhiteSpace(profile.CheckNumberColumn))
+            throw new InvalidOperationException("El perfil estructurado no tiene tabla o filtros completos.");
+
+        var sql = $"SELECT TOP (@MaxRows) {string.Join(',', select)} FROM {Table(profile.BaseSchema, profile.BaseTable)} b";
+        if (!string.IsNullOrWhiteSpace(profile.DetailTable))
+            sql += $" LEFT JOIN {Table(profile.DetailSchema!, profile.DetailTable)} d ON b.{Quote(profile.BaseJoinColumn!)}=d.{Quote(profile.DetailJoinColumn!)}";
+        sql += $" WHERE CONVERT(nvarchar(256),{Column(profile.ReservationColumn)})=@ReservationId" +
+               $" AND CONVERT(nvarchar(256),{Column(profile.CheckNumberColumn)})=@CheckNumber";
+        if (!string.IsNullOrWhiteSpace(profile.ResortColumn))
+            sql += $" AND CONVERT(nvarchar(256),{Column(profile.ResortColumn)})=@Resort";
+        return sql;
     }
 
     private static string Table(string schema, string table) => $"{Quote(Identifier(schema))}.{Quote(Identifier(table))}";

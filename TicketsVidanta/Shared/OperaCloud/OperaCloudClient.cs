@@ -28,47 +28,32 @@ public sealed class OperaCloudClient(
         return new ReservationLookupResult(true, reservationId);
     }
 
-
-//Mapeo de documentos en el post de ohip hacia operacloud [Billing]
     public async Task<DocumentUploadResult> UploadDocumentAsync(
         DocumentUploadRequest request,
         CancellationToken cancellationToken)
     {
         var value = options.Value;
-       using var message = await CreateRequestAsync(
-    HttpMethod.Post,
-    $"/csh/v1/hotels/{value.HotelId}/check/{request.CheckNumber}",
-    request.CorrelationId,
-    cancellationToken);
+        using var message = await CreateRequestAsync(
+            HttpMethod.Post,
+            "/med/config/v1/fileAttachments",
+            request.CorrelationId,
+            cancellationToken);
 
-var imageBase64 =
-    Convert.ToBase64String(request.Content.Span);
+        message.Content = JsonContent.Create(new
+        {
+            linkType = "Reservation",
+            linkId = request.ReservationId,
+            fileName = request.FileName,
+            fileType = request.MimeType,
+            fileAttachment = Convert.ToBase64String(request.Content.Span),
+            description = value.AttachmentDescription,
+            userName = value.AttachmentUserName
+        });
 
-var dataUri =
-    $"data:{request.MimeType};base64,{imageBase64}";
-
-var payload = new
-{
-    checkDetails = new
-    {
-        checkImage =
-            Convert.ToBase64String(
-                System.Text.Encoding.UTF8.GetBytes(dataUri))
-    }
-};
-
-message.Content = JsonContent.Create(payload);
-         using var response = await httpClient.SendAsync(message, cancellationToken);
+        using var response = await httpClient.SendAsync(message, cancellationToken);
         if (response.StatusCode != HttpStatusCode.Created)
-{
-    var body = await response.Content.ReadAsStringAsync(cancellationToken);
-
-    return new DocumentUploadResult(
-        false,
-        null,
-        $"OHIP rechazó la carga de adjunto con HTTP {(int)response.StatusCode}: {body}");
-}
-
+            return new DocumentUploadResult(false, null,
+                await ErrorAsync("carga de adjunto", response, cancellationToken));
 
         var location = response.Headers.Location?.ToString();
         var documentId = string.IsNullOrWhiteSpace(location)
@@ -106,6 +91,6 @@ message.Content = JsonContent.Create(payload);
     {
         var body = await response.Content.ReadAsStringAsync(cancellationToken);
         if (body.Length > 500) body = body[..500];
-        return $"OHIP rechazó la {operation} con HTTP {(int)response.StatusCode}: {body}";
+        return $"OHIP rechazo la {operation} con HTTP {(int)response.StatusCode}: {body}";
     }
 }

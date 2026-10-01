@@ -30,7 +30,7 @@ BEGIN
         RowVersion      rowversion NOT NULL,
         CONSTRAINT CK_MasterTransactions_Status CHECK (Status IN ('Pending','Processing','Completed','Failed')),
         CONSTRAINT CK_MasterTransactions_AttemptCount CHECK (AttemptCount >= 0),
-        CONSTRAINT UQ_MasterTransactions_BusinessKey UNIQUE (Resort, ReservationId, CheckNumber, SourceSystem)
+        CONSTRAINT UQ_MasterTransactions_BusinessKey UNIQUE (Resort, ReservationId, CheckNumber)
     );
     CREATE INDEX IX_MasterTransactions_Claim
         ON dbo.MasterTransactions (Status, LeaseUntilUtc, AttemptCount, CreatedAtUtc)
@@ -52,7 +52,7 @@ BEGIN
         StartedAtUtc    datetimeoffset(7) NOT NULL,
         CompletedAtUtc  datetimeoffset(7) NULL,
         ErrorMessage    nvarchar(2000) NULL,
-        CONSTRAINT UQ_ProcessingRecords_BusinessKey UNIQUE (Resort, ReservationId, CheckNumber, SourceSystem),
+        CONSTRAINT UQ_ProcessingRecords_BusinessKey UNIQUE (Resort, ReservationId, CheckNumber),
         CONSTRAINT UQ_ProcessingRecords_CorrelationId UNIQUE (CorrelationId),
         CONSTRAINT CK_ProcessingRecords_Status CHECK
             (Status IN ('Pending','Resolving','Resolved','GeneratingDocument','Uploading','Completed','Failed'))

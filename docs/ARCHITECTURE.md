@@ -6,7 +6,7 @@ TicketsVidanta orquesta la obtención, normalización, representación y entrega
 
 ## Componentes
 
-`ProcesarCheque.Handler` coordina el caso de uso. `IProcessingRegistry` protege la llave lógica; `ICheckResolverSelector` exige una coincidencia única; `IOperaCloudClient` valida reserva y carga; `ITicketRenderer` produce bytes; `ITicketFileNameGenerator` aísla nomenclatura; `IAuditService` registra el resultado. El worker reutiliza el mismo procesador, evitando dos pipelines divergentes.
+`ProcesarCheque.Handler` coordina el caso de uso. `IProcessingRegistry` protege la llave lógica; `ICheckResolverSelector` exige una coincidencia única; `IOperaCloudClient` valida reserva y carga; `ITicketRenderer` produce bytes; `ITicketTemplateCatalog` selecciona el diseño por sistema, resort y POS; `ITicketFileNameGenerator` aísla nomenclatura; `IAuditService` registra el resultado. El worker reutiliza el mismo procesador, evitando dos pipelines divergentes.
 
 Las dependencias apuntan desde el slice hacia contratos pequeños de `Shared`. No hay capas de dominio/aplicación/infraestructura artificiales ni bus interno.
 

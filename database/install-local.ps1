@@ -20,6 +20,8 @@ Invoke-DatabaseScript "002-schema.sql"
 Invoke-DatabaseScript "004-processing-retries.sql"
 Invoke-DatabaseScript "005-financial-transaction-routing.sql"
 Invoke-DatabaseScript "006-configurable-database-sources.sql"
+Invoke-DatabaseScript "007-custom-queries-and-upload-idempotency.sql"
+Invoke-DatabaseScript "008-configurable-ticket-templates.sql"
 
 if ($IncludeDevelopmentSeed) {
     Invoke-DatabaseScript "003-development-seed.sql"

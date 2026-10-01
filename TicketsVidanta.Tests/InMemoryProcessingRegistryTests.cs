@@ -42,4 +42,25 @@ public sealed class InMemoryProcessingRegistryTests
 
         Assert.True(await registry.HasAlreadyBeenProcessedAsync(key, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task SameCheck_FromDifferentAccountingRows_IsRegisteredOnlyOnce()
+    {
+        var registry = new InMemoryProcessingRegistry();
+        var first = ProcessingKey.From(TestFactory.Context(sourceSystem: "FOOD"));
+        var repeatedTaxRow = ProcessingKey.From(TestFactory.Context(sourceSystem: "TAX"));
+
+        Assert.True(await registry.TryRegisterStartedAsync(first, Guid.NewGuid(), CancellationToken.None));
+        Assert.False(await registry.TryRegisterStartedAsync(repeatedTaxRow, Guid.NewGuid(), CancellationToken.None));
+    }
+
+    [Fact]
+    public void ProcessingKey_NormalizesCaseAndOuterSpaces()
+    {
+        var first = new ProcessingKey(" ACA ", " 468830 23 ", " 221650 ", "FOOD");
+        var repeated = new ProcessingKey("aca", "468830 23", "221650", "BEVERAGE");
+
+        Assert.Equal(first, repeated);
+        Assert.Equal(first.GetHashCode(), repeated.GetHashCode());
+    }
 }

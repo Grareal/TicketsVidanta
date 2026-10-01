@@ -11,7 +11,7 @@ public sealed class SqlProcessingRegistry(ISqlConnectionFactory connectionFactor
         const string sql = """
             SELECT TOP (1) 1 FROM dbo.ProcessingRecords
             WHERE Resort=@Resort AND ReservationId=@ReservationId AND CheckNumber=@CheckNumber
-              AND SourceSystem=@SourceSystem AND Status='Completed';
+              AND Status='Completed';
             """;
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
@@ -23,10 +23,10 @@ public sealed class SqlProcessingRegistry(ISqlConnectionFactory connectionFactor
     {
         const string retrySql = """
             UPDATE dbo.ProcessingRecords
-               SET CorrelationId=@CorrelationId, Status='Resolving', StartedAtUtc=SYSUTCDATETIME(),
+               SET CorrelationId=@CorrelationId, SourceSystem=@SourceSystem, Status='Resolving', StartedAtUtc=SYSUTCDATETIME(),
                    CompletedAtUtc=NULL, ErrorMessage=NULL
              WHERE Resort=@Resort AND ReservationId=@ReservationId AND CheckNumber=@CheckNumber
-               AND SourceSystem=@SourceSystem AND Status='Failed';
+               AND Status='Failed';
             """;
         const string sql = """
             INSERT dbo.ProcessingRecords
@@ -89,7 +89,7 @@ public sealed class SqlProcessingRegistry(ISqlConnectionFactory connectionFactor
             UPDATE dbo.ProcessingRecords
                SET Status=@Status, CompletedAtUtc=SYSUTCDATETIME(), ErrorMessage=@ErrorMessage
              WHERE Resort=@Resort AND ReservationId=@ReservationId AND CheckNumber=@CheckNumber
-               AND SourceSystem=@SourceSystem AND CorrelationId=@CorrelationId;
+               AND CorrelationId=@CorrelationId;
             """;
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);

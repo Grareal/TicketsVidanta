@@ -65,14 +65,17 @@ TicketsVidanta/
     OperaCloud/           Mock y cliente OHIP real con OAuth
     Processing/           Idempotencia SQL/memoria y BackgroundService
     Resolvers/            Resolver Pattern y guía de extensión
-    TicketGeneration/     Contrato y PNG mock
+    TicketGeneration/     Contrato, plantillas térmicas y renderer SVG
 ```
 
 ## Flujo objetivo
 
 La tabla maestra entregará pendientes; el worker los reclamará por lote; cada registro se normalizará como `CheckProcessingContext`; el selector localizará exactamente un resolver; el resolver consultará el detalle propio del comercio; se validará `ReservationId`; se generará el PNG; se cargará en Opera Cloud; se registrará auditoría y se actualizará el registro maestro.
 
-`ReservationId` es la llave canónica actual para buscar la reserva. La idempotencia usa provisionalmente `Resort + ReservationId + CheckNumber + SourceSystem`; ambas decisiones deben validarse con negocio. `CorrelationId` es un `Guid` nuevo por intento y aparece en logs, auditoría y contratos externos.
+`ReservationId` es la llave canónica actual para buscar la reserva. La idempotencia de carga usa
+`Resort + ReservationId + CheckNumber`: las filas repetidas por alimento, bebida o impuesto no
+vuelven a adjuntar el cheque. `CorrelationId` es un `Guid` nuevo por intento y aparece en logs,
+auditoría y contratos externos.
 
 ## Integración Inssist disponible
 
@@ -136,6 +139,15 @@ el pipeline usará esa imagen al procesar el cheque; si no existe una asociació
 Mock predeterminado. Las imágenes se guardan localmente en `App_Data/visual-test-images` y no se
 versionan.
 
+## Configurador de formatos
+
+`http://localhost:5137/ticket-formats` permite crear plantillas térmicas por sistema, resort y punto
+de venta, ajustar encabezado fiscal, papel, tipografía, columnas, totales, líneas de firma y textos
+legales, y revisar una vista previa antes de guardar. Las plantillas se recargan sin reiniciar.
+
+Ejecute el instalador para aplicar `database/008-configurable-ticket-templates.sql` y consulte la
+[guía del configurador](docs/CONFIGURADOR-FORMATOS-TICKET.md).
+
 Consulte después `GET /api/tickets/{correlationId}/status`. Repetir la misma llave en el mismo proceso devuelve `409 Conflict` por idempotencia.
 
 ## Agregar un resolver
@@ -149,14 +161,16 @@ Siga [la guía de conexiones](TicketsVidanta/Shared/Database/Commerce/README.md)
 ## Configurador visual de fuentes
 
 Existe un módulo administrable en `/db-config` que permite guardar conexiones SQL cifradas,
-descubrir tablas y columnas, relacionar una tabla principal con una de detalle, elegir los campos de
-búsqueda y salida, limitar la cantidad de renglones y definir rutas `TC_GROUP + TRX_CODE`. Los cambios
+descubrir tablas y columnas, relacionar tablas o capturar un `SELECT` parametrizado con cualquier
+cantidad de joins, elegir los campos de búsqueda y salida, limitar renglones y definir rutas `TC_GROUP + TRX_CODE`. Los cambios
 se recargan sin reiniciar y desembocan en el mismo pipeline de generación y carga a Opera Cloud.
 
-Ejecute el script `database/006-configurable-database-sources.sql` antes de usarlo. La vista está
+Ejecute `database/install-local.ps1` (incluye los scripts `006`, `007` y `008`) antes de usarlo. La vista está
 habilitada en Development y apagada por defecto en los demás ambientes. Consulte la
 [guía completa](docs/CONFIGURABLE-DATABASE-SOURCES.md), incluidas las exigencias de autenticación,
-llavero de cifrado y permisos de solo lectura antes de habilitarla fuera de desarrollo.
+llavero de cifrado y permisos de solo lectura antes de habilitarla fuera de desarrollo. Para configurar
+por hotel/código y usar el ejemplo `hotche -> hotcom -> hotayb`, consulte también la
+[guía por código](docs/GUIA-CONFIGURACION-POR-CODIGO.md).
 
 ## Tabla maestra
 
