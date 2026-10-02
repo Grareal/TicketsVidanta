@@ -46,8 +46,8 @@
   </div></section>
 
   <section id="routes"><div class="grid">
-    <form id="route-form" class="card"><h2>Regla de enrutamiento</h2><input type="hidden" id="route-id"><div class="row"><div><label>TC_GROUP</label><input id="route-group" required></div><div><label>TRX_CODE</label><input id="route-code" required></div></div><label>Sistema origen del perfil</label><input id="route-source" required placeholder="SIMPHONY"><label class="check"><input id="route-enabled" type="checkbox" checked> Regla habilitada</label><div class="actions"><button>Guardar regla</button></div><div class="status" id="route-status"></div></form>
-    <div class="card"><h2>Rutas activas</h2><table><thead><tr><th>TC_GROUP + TRX_CODE</th><th>Origen</th><th></th></tr></thead><tbody id="routes-list"></tbody></table></div>
+    <form id="route-form" class="card"><h2>Regla de enrutamiento</h2><input type="hidden" id="route-id"><div class="row"><div><label>TC_GROUP</label><input id="route-group" required></div><div><label>TC_SUBGROUP</label><input id="route-code" required></div></div><label>Sistema origen del perfil</label><input id="route-source" required placeholder="SIMPHONY"><label class="check"><input id="route-enabled" type="checkbox" checked> Regla habilitada</label><div class="actions"><button>Guardar regla</button></div><div class="status" id="route-status"></div></form>
+    <div class="card"><h2>Rutas activas</h2><table><thead><tr><th>TC_GROUP + TC_SUBGROUP</th><th>Origen</th><th></th></tr></thead><tbody id="routes-list"></tbody></table></div>
   </div></section>
 </main>
 <script>

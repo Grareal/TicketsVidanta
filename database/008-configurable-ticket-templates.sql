@@ -1,3 +1,7 @@
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON;
+GO
+
 :setvar DatabaseName "TicketsVidanta"
 USE [$(DatabaseName)];
 GO

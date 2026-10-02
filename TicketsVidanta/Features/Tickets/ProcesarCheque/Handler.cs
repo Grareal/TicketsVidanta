@@ -156,7 +156,7 @@ public sealed class Handler(
         Reference = request.Reference?.Trim(),
         // Para el endpoint de desarrollo, Reference="MOCK" permite usar el resolver Mock
         // del ejemplo solicitado. Los orígenes reales deberán informar SourceSystem explícitamente.
-        SourceSystem = (request.SourceSystem ?? sourceRouter.Resolve(request.TcGroup, request.TrxCode)
+        SourceSystem = (request.SourceSystem ?? sourceRouter.Resolve(request.TcGroup, request.TrxCode,request.Resort)
             ?? request.Reference ?? string.Empty).Trim(),
         TcGroup = request.TcGroup?.Trim(),
         TrxCode = request.TrxCode?.Trim(),

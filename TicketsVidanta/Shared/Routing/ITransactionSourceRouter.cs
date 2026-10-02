@@ -2,5 +2,5 @@ namespace TicketsVidanta.Shared.Routing;
 
 public interface ITransactionSourceRouter
 {
-    string? Resolve(string? tcGroup, string? trxCode);
+    string? Resolve(string? tcGroup, string? trxCode,string? resort);
 }

@@ -24,6 +24,8 @@ public sealed partial class SqlFinancialTransactionReader(
         var businessDate = Column(source.BusinessDateColumn);
         var transactionNumber = Column(source.TransactionNumberColumn);
         var tcGroupColumn = Column(source.TcGroupColumn);
+        var tcSubGroupColumn = Column(source.TcSubGroupColumn);
+
         var trxCodeColumn = Column(source.TrxCodeColumn);
         var checkNumber = Column(source.CheckNumberColumn);
         var reservationId = Column(source.ReservationIdColumn);
@@ -35,14 +37,14 @@ public sealed partial class SqlFinancialTransactionReader(
         await using var command = new SqlCommand();
         for (var index = 0; index < rules.Count; index++)
         {
-            predicates.Add($"({tcGroupColumn}=@Group{index} AND CONVERT(nvarchar(80), {trxCodeColumn})=@Code{index})");
+            predicates.Add($"({tcGroupColumn}=@Group{index} AND CONVERT(nvarchar(80), {tcSubGroupColumn})=@Code{index})");
             command.Parameters.AddWithValue($"@Group{index}", rules[index].TcGroup);
             command.Parameters.AddWithValue($"@Code{index}", rules[index].TrxCode);
         }
 
         command.CommandText = $"""
             SELECT TOP (@BatchSize)
-                {resort}, {transactionDate}, {businessDate}, {transactionNumber}, {tcGroupColumn}, {trxCodeColumn},
+                {resort}, {transactionDate}, {businessDate}, {transactionNumber}, {tcGroupColumn}, {tcSubGroupColumn},
                 {checkNumber}, {reservationId}, {room}, {reference}, {remark}
             FROM {Table(source.Schema, source.Table)}
             WHERE ({string.Join(" OR ", predicates)})
@@ -60,6 +62,13 @@ public sealed partial class SqlFinancialTransactionReader(
             throw new InvalidOperationException(
                 $"La cadena '{sourceOptions.Value.ConnectionStringName}' de la consulta maestra no está configurada.");
 
+        //Console.WriteLine("================================");
+        //Console.WriteLine(connectionString);
+        //Console.WriteLine("================================");
+
+        //Console.WriteLine(
+        //configuration["ConnectionStrings:FinancialTransactions"]);
+
         await using var connection = new SqlConnection(connectionString);
         command.Connection = connection;
         await connection.OpenAsync(cancellationToken);
@@ -69,7 +78,7 @@ public sealed partial class SqlFinancialTransactionReader(
         {
             var tcGroup = Value(reader, 4)!;
             var trxCode = Value(reader, 5)!;
-            var sourceSystem = router.Resolve(tcGroup, trxCode);
+            var sourceSystem = router.Resolve(tcGroup, trxCode,resort);
             if (sourceSystem is null) continue;
             result.Add(new FinancialTransactionCandidate(
                 Value(reader, 0)!, Date(reader, 1), Date(reader, 2), Value(reader, 3), tcGroup,
@@ -81,9 +90,20 @@ public sealed partial class SqlFinancialTransactionReader(
 
     private static string? Value(SqlDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : Convert.ToString(reader.GetValue(ordinal))?.Trim();
-    private static DateTime? Date(SqlDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : Convert.ToDateTime(reader.GetValue(ordinal));
+    private static DateTime? Date(SqlDataReader reader, int ordinal)
+{
+    if (reader.IsDBNull(ordinal))
+        return null;
 
+    var value = reader.GetValue(ordinal);
+
+    return value switch
+    {
+        DateTime dt => dt,
+        DateTimeOffset dto => dto.DateTime,
+        _ => Convert.ToDateTime(value)
+    };
+}
     private static string Table(string schema, string table) => $"{Column(schema)}.{Column(table)}";
     private static string Column(string identifier) => IdentifierRegex().IsMatch(identifier)
         ? $"[{identifier.Replace("]", "]]", StringComparison.Ordinal)}]"

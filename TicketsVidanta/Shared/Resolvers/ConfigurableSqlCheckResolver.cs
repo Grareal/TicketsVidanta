@@ -7,20 +7,44 @@ using TicketsVidanta.Shared.Models;
 
 namespace TicketsVidanta.Shared.Resolvers;
 
-internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfigurationCache cache) : ICheckResolver
-{
+internal sealed partial class ConfigurableSqlCheckResolver(
+    IRuntimeConfigurationCache cache,
+    ILogger<ConfigurableSqlCheckResolver> logger)
+    : ICheckResolver{
     private static readonly HashSet<string> AllowedRoles = new(StringComparer.OrdinalIgnoreCase)
     {
         "GuestName", "Room", "PointOfSale", "CheckNumber", "BusinessDate", "Time", "Subtotal", "Tip", "Tax",
         "Total", "Currency", "Header", "Footer", "Server", "Table", "GuestCount", "Turn", "CopyNumber",
         "ItemDescription", "ItemQuantity", "ItemAmount"
     };
+    private readonly ILogger<ConfigurableSqlCheckResolver> _logger = logger;
 
-    public bool CanHandle(CheckProcessingContext context) => cache.FindProfile(context.SourceSystem, context.Resort) is not null;
+
+        public bool CanHandle(CheckProcessingContext context)
+    {
+        var profile = cache.FindProfile(
+            context.SourceSystem,
+            context.Resort);
+
+        _logger.LogWarning(
+            "CanHandle SourceSystem={SourceSystem}, Resort={Resort}, ProfileFound={ProfileFound}",
+            context.SourceSystem,
+            context.Resort,
+            profile != null);
+
+        return profile is not null;
+    }
+
 
     public async Task<CheckDetail?> ResolveAsync(CheckProcessingContext context, CancellationToken cancellationToken)
     {
         var runtime = cache.FindProfile(context.SourceSystem, context.Resort);
+                logger.LogWarning(
+                    "Resolver search. SourceSystem={SourceSystem}, Resort={Resort}",
+                    context.SourceSystem,
+                    context.Resort);
+       
+
         if (runtime is null) return null;
         var profile = runtime.Profile;
         var customQuery = !string.IsNullOrWhiteSpace(profile.CustomQuerySql);
@@ -32,7 +56,14 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         command.Parameters.AddWithValue("@MaxRows", profile.MaxRows);
         command.Parameters.AddWithValue("@ReservationId", context.ReservationId.Trim());
         command.Parameters.AddWithValue("@CheckNumber", context.CheckNumber.Trim());
+
+        //No tiene adaptacion para que se retire la informacion del cheque 
+           
+ 
         command.Parameters.AddWithValue("@Resort", context.Resort.Trim());
+
+         
+  
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var items = new List<CheckItem>();
         Dictionary<string, object?>? first = null;
@@ -43,15 +74,33 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         if (resultRoles.Length == 0)
             throw new InvalidOperationException("La consulta no devolvio alias de ticket reconocidos.");
         while (await reader.ReadAsync(cancellationToken))
-        {
-            var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
-            foreach (var (index, role) in resultRoles)
-                row[role] = reader.IsDBNull(index) ? null : reader.GetValue(index);
-            first ??= row;
-            if (row.TryGetValue("ItemDescription", out var description) && description is not null)
-                items.Add(new(Convert.ToString(description)?.Trim() ?? "Concepto", Decimal(row, "ItemQuantity") ?? 1m, Decimal(row, "ItemAmount") ?? 0m));
-        }
-        if (first is null) return null;
+                {
+                    var row = new Dictionary<string, object?>(StringComparer.OrdinalIgnoreCase);
+
+                    foreach (var (index, role) in resultRoles)
+                        row[role] = reader.IsDBNull(index) ? null : reader.GetValue(index);
+
+                    first ??= row;
+
+                    if (row.TryGetValue("ItemDescription", out var description) && description is not null)
+                        items.Add(new(
+                            Convert.ToString(description)?.Trim() ?? "Concepto",
+                            Decimal(row, "ItemQuantity") ?? 1m,
+                            Decimal(row, "ItemAmount") ?? 0m));
+                }
+
+                if (first is null)
+                {
+                    _logger.LogWarning(
+                        "No rows found. ReservationId={ReservationId}, CheckNumber={CheckNumber}, Resort={Resort}, SourceSystem={SourceSystem}",
+                        context.ReservationId,
+                        context.CheckNumber,
+                        context.Resort,
+                        context.SourceSystem);
+
+                    return null;
+                }
+
         var receipt = new CheckReceiptDetails(
             Text(first, "GuestName"), Text(first, "Room") ?? context.Room, Text(first, "PointOfSale"),
             Text(first, "CheckNumber") ?? context.CheckNumber, Date(first, "BusinessDate"), Time(first, "Time"),

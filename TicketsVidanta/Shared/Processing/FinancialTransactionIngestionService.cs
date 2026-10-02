@@ -20,11 +20,14 @@ public sealed class FinancialTransactionIngestionService(
                 var candidates = await reader.ReadAsync(stoppingToken);
                 var inserted = await inbox.AddMissingAsync(candidates, stoppingToken);
                 logger.LogInformation("Financial transactions ingested. Read={Read}, Inserted={Inserted}", candidates.Count, inserted);
+                logger.LogInformation("Read={Read} Inserted={Inserted}",candidates.Count,inserted);
+
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { throw; }
             catch (Exception exception)
             {
                 logger.LogError(exception, "Financial transaction ingestion failed.");
+
             }
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));

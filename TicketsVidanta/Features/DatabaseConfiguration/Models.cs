@@ -55,7 +55,7 @@ public sealed record SaveTicketProfileRequest(
     int MaxRows = 250);
 
 public sealed record TransactionRoute(
-    Guid Id, string TcGroup, string TrxCode, string SourceSystem, bool IsEnabled, DateTimeOffset UpdatedAtUtc);
+    Guid Id, string TcGroup, string TrxCode,string resort, string SourceSystem, bool IsEnabled, DateTimeOffset UpdatedAtUtc);
 
 public sealed record SaveTransactionRouteRequest(
     Guid? Id, string? TcGroup, string? TrxCode, string? SourceSystem, bool IsEnabled = true);

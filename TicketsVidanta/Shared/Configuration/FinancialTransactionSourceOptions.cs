@@ -14,6 +14,11 @@ public sealed class FinancialTransactionSourceOptions
     public string BusinessDateColumn { get; init; } = "BUSINESS_DATE";
     public string TransactionNumberColumn { get; init; } = "TRX_NO";
     public string TcGroupColumn { get; init; } = "TC_GROUP";
+    public string TcSubGroupColumn { get; init; } = "TC_SUBGROUP";
+
+    public string resort { get; init; } = "RESORTT";
+
+
     public string TrxCodeColumn { get; init; } = "TRX_CODE";
     public string CheckNumberColumn { get; init; } = "CHEQUE_NUMBER";
     public string ReservationIdColumn { get; init; } = "RESV_NAME_ID";

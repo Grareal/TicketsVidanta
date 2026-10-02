@@ -67,8 +67,8 @@ internal sealed class ConfigurableTransactionSourceRouter(
     OptionsTransactionSourceRouter optionsRouter,
     Microsoft.Extensions.Options.IOptions<TransactionRoutingOptions> options) : ITransactionSourceRouter, ITransactionRouteCatalog
 {
-    public string? Resolve(string? tcGroup, string? trxCode) =>
-        cache.Resolve(tcGroup, trxCode) ?? optionsRouter.Resolve(tcGroup, trxCode);
+    public string? Resolve(string? tcGroup, string? trxCode,string? resort) =>
+        cache.Resolve(tcGroup, trxCode) ?? optionsRouter.Resolve(tcGroup, trxCode,resort);
 
     public IReadOnlyList<TransactionRoutingRule> GetRules()
     {

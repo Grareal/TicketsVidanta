@@ -121,14 +121,14 @@ internal sealed class SqlConfigurationRepository(
 
     public async Task<IReadOnlyList<TransactionRoute>> GetRoutesAsync(CancellationToken cancellationToken)
     {
-        const string sql = "SELECT Id,TcGroup,TrxCode,SourceSystem,IsEnabled,UpdatedAtUtc FROM dbo.ConfigTransactionRoutes ORDER BY TcGroup,TrxCode";
+        const string sql = "SELECT Id,TcGroup,TrxCode,resort,SourceSystem,IsEnabled,UpdatedAtUtc FROM dbo.ConfigTransactionRoutes ORDER BY TcGroup,TrxCode";
         await using var connection = connectionFactory.CreateConnection();
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection);
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var result = new List<TransactionRoute>();
         while (await reader.ReadAsync(cancellationToken))
-            result.Add(new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2), reader.GetString(3), reader.GetBoolean(4), reader.GetDateTimeOffset(5)));
+            result.Add(new(reader.GetGuid(0), reader.GetString(1), reader.GetString(2),reader.GetString(3), reader.GetString(4), reader.GetBoolean(5), reader.GetDateTimeOffset(6)));
         return result;
     }
 
