@@ -75,16 +75,33 @@ public sealed partial class SqlFinancialTransactionReader(
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var result = new List<FinancialTransactionCandidate>();
         while (await reader.ReadAsync(cancellationToken))
-        {
-            var tcGroup = Value(reader, 4)!;
-            var trxCode = Value(reader, 5)!;
-            var sourceSystem = router.Resolve(tcGroup, trxCode,resort);
-            if (sourceSystem is null) continue;
-            result.Add(new FinancialTransactionCandidate(
-                Value(reader, 0)!, Date(reader, 1), Date(reader, 2), Value(reader, 3), tcGroup,
-                trxCode, Value(reader, 6)!, Value(reader, 7)!, Value(reader, 8),
-                Value(reader, 9), Value(reader, 10), sourceSystem));
-        }
+{
+    var resortValue = Value(reader, 0)!;
+    var tcGroup = Value(reader, 4)!;
+    var trxCode = Value(reader, 5)!;
+
+    var sourceSystem = router.Resolve(
+        tcGroup,
+        trxCode,
+        resortValue);
+
+    if (sourceSystem is null)
+        continue;
+
+    result.Add(new FinancialTransactionCandidate(
+        resortValue,
+        Date(reader, 1),
+        Date(reader, 2),
+        Value(reader, 3),
+        tcGroup,
+        trxCode,
+        Value(reader, 6)!,
+        Value(reader, 7)!,
+        Value(reader, 8),
+        Value(reader, 9),
+        Value(reader, 10),
+        sourceSystem));
+}
         return result;
     }
 

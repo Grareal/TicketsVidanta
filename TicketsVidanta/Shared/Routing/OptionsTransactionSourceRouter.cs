@@ -16,22 +16,29 @@ public sealed class OptionsTransactionSourceRouter(IOptions<TransactionRoutingOp
         return null;
 
     var matches = options.Value.Rules.Where(rule =>
-        string.Equals(rule.TcGroup.Trim(), tcGroup.Trim(), StringComparison.OrdinalIgnoreCase)
-        &&
-        string.Equals(rule.TrxCode.Trim(), trxCode.Trim(), StringComparison.OrdinalIgnoreCase)
-        &&
-        (
-            string.IsNullOrWhiteSpace(rule.Resort)
-            ||
-            string.Equals(
-                rule.Resort.Trim(),
-                resort?.Trim(),
-                StringComparison.OrdinalIgnoreCase)
-        )
+    string.Equals(rule.TcGroup.Trim(), tcGroup.Trim(), StringComparison.OrdinalIgnoreCase)
+    &&
+    string.Equals(rule.TrxCode.Trim(), trxCode.Trim(), StringComparison.OrdinalIgnoreCase)
+    &&
+    (
+                string.Equals(
+            rule.Resort?.Trim(),
+            resort?.Trim(),
+            StringComparison.OrdinalIgnoreCase)
     )
-    .Take(2)
-    .ToArray();
+)
+.Take(2)
+.ToArray();
 
+/*Console.WriteLine(
+    $"ROUTER => TcGroup={tcGroup}, TrxCode={trxCode}, Resort={resort}");
+
+foreach (var match in matches)
+{
+    Console.WriteLine(
+        $"MATCH => RuleResort={match.Resort}, SourceSystem={match.SourceSystem}");
+}
+*/
     return matches.Length == 1 &&
            !string.IsNullOrWhiteSpace(matches[0].SourceSystem)
         ? matches[0].SourceSystem.Trim()

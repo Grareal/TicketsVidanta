@@ -3,14 +3,45 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Fuentes de tickets · TicketsVidanta</title>
+
   <style>
-    :root{font-family:Inter,Segoe UI,sans-serif;color:#172231;background:#f4f7fa;--navy:#183b56;--blue:#087e8b;--line:#d9e2ec;--danger:#b42318}
-    *{box-sizing:border-box} body{margin:0} header{background:linear-gradient(120deg,#102a43,#16697a);color:white;padding:28px max(24px,calc((100% - 1180px)/2))} h1{margin:0 0 6px;font-size:25px} header p{margin:0;opacity:.82}
-    main{max-width:1180px;margin:24px auto;padding:0 20px}.notice{background:#fff8e6;border-left:4px solid #e3a008;padding:12px 16px;margin-bottom:18px}.tabs{display:flex;gap:8px;margin-bottom:15px}.tabs button{background:#e5edf3;color:#29445a}.tabs button.active{background:var(--navy);color:white}
-    section{display:none}.active-section{display:block}.grid{display:grid;grid-template-columns:minmax(330px,1fr) minmax(430px,1.45fr);gap:18px}.card{background:white;border:1px solid var(--line);border-radius:10px;padding:20px;box-shadow:0 3px 12px #102a4310}h2{font-size:18px;margin:0 0 15px}h3{font-size:15px}
-    label{display:block;font-size:12px;font-weight:650;color:#486581;margin:10px 0 4px}input,select,textarea{width:100%;padding:9px 10px;border:1px solid #bcccdc;border-radius:6px;background:white}textarea{min-height:210px;font:12px Consolas,monospace;resize:vertical}input:focus,select:focus,textarea:focus{outline:2px solid #79c2c9;border-color:transparent}.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.check{display:flex;align-items:center;gap:8px;margin:12px 0}.check input{width:auto}
-    button{border:0;border-radius:6px;background:var(--blue);color:white;padding:9px 14px;font-weight:650;cursor:pointer}button.secondary{background:#486581}button.danger{background:white;color:var(--danger);border:1px solid #f1b5b0;padding:5px 9px}.actions{display:flex;gap:8px;margin-top:15px}.status{min-height:22px;margin:10px 0;color:#18794e}.status.error{color:var(--danger)}
-    table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #e6edf2}th{color:#486581}.muted{color:#627d98;font-size:12px}.mapping{display:grid;grid-template-columns:1fr 1.4fr;gap:6px 10px;align-items:center}.mapping label{margin:0}.pill{font-size:11px;padding:3px 7px;border-radius:10px;background:#e6f4f1;color:#087e6b}@media(max-width:850px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.tabs{overflow:auto}}
+    :root{font-family:Inter,Segoe UI,sans-serif;
+      color:#172231;background:#f4f7fa;--navy:#183b56;
+      --blue:#087e8b;--line:#d9e2ec;--danger:#b42318}
+
+    *{box-sizing:border-box}
+    body{margin:0}
+    header{background:linear-gradient(120deg,#102a43,#16697a);color:white;padding:28px max(24px,calc((100% - 1180px)/2))} 
+    h1{margin:0 0 6px;font-size:25px} 
+    header p{margin:0;opacity:.82}
+    main{max-width:1180px;margin:24px auto;padding:0 20px}
+    .notice{background:#fff8e6;border-left:4px solid #e3a008;padding:12px 16px;margin-bottom:18px}
+    .tabs{display:flex;gap:8px;margin-bottom:15px}.tabs button{background:#e5edf3;color:#29445a}
+    .tabs button.active{background:var(--navy);color:white}
+    section{display:none}.active-section{display:block}
+    .grid{display:grid;grid-template-columns:minmax(330px,1fr) minmax(430px,1.45fr);gap:18px}
+    .card{background:white;border:1px solid var(--line);border-radius:10px;padding:20px;box-shadow:0 3px 12px #102a4310}
+    h2{font-size:18px;margin:0 0 15px}h3{font-size:15px}
+    label{display:block;font-size:12px;font-weight:650;color:#486581;margin:10px 0 4px}
+    input,select,textarea{width:100%;padding:9px 10px;border:1px solid #bcccdc;border-radius:6px;background:white}
+    textarea{min-height:210px;font:12px Consolas,monospace;resize:vertical}
+    input:focus,select:focus,textarea:focus{outline:2px solid #79c2c9;border-color:transparent}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .check{display:flex;align-items:center;gap:8px;margin:12px 0}
+    .check input{width:auto}
+    button{border:0;border-radius:6px;background:var(--blue);color:white;padding:9px 14px;font-weight:650;cursor:pointer}
+    button.secondary{background:#486581}
+    button.danger{background:white;color:var(--danger);border:1px solid #f1b5b0;padding:5px 9px}
+    .actions{display:flex;gap:8px;margin-top:15px}
+    .status{min-height:22px;margin:10px 0;color:#18794e}
+    .status.error{color:var(--danger)}
+    table{border-collapse:collapse;width:100%;font-size:13px}
+    th,td{text-align:left;padding:9px 7px;border-bottom:1px solid #e6edf2}
+    th{color:#486581}.muted{color:#627d98;font-size:12px}
+    .mapping{display:grid;grid-template-columns:1fr 1.4fr;gap:6px 10px;align-items:center}
+    .mapping label{margin:0}
+    .pill{font-size:11px;padding:3px 7px;border-radius:10px;background:#e6f4f1;color:#087e6b}@media(max-width:850px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}
+    .tabs{overflow:auto}}
   </style>
 </head>
 <body>
@@ -46,7 +77,8 @@
   </div></section>
 
   <section id="routes"><div class="grid">
-    <form id="route-form" class="card"><h2>Regla de enrutamiento</h2><input type="hidden" id="route-id"><div class="row"><div><label>TC_GROUP</label><input id="route-group" required></div><div><label>TC_SUBGROUP</label><input id="route-code" required></div></div><label>Sistema origen del perfil</label><input id="route-source" required placeholder="SIMPHONY"><label class="check"><input id="route-enabled" type="checkbox" checked> Regla habilitada</label><div class="actions"><button>Guardar regla</button></div><div class="status" id="route-status"></div></form>
+    <form id="route-form" class="card"><h2>Regla de enrutamiento</h2><input type="hidden" id="route-id"><div class="row"><div><label>TC_GROUP</label><input id="route-group" required></div><div><label>TC_SUBGROUP</label><input id="route-code" required></div></div><label>Sistema origen del perfil</label><label>Resort (vacío = todos)</label>
+<input id="route-resort" placeholder="VIPP"><input id="route-source" required placeholder="SIMPHONY"><label class="check"><input id="route-enabled" type="checkbox" checked> Regla habilitada</label><div class="actions"><button>Guardar regla</button></div><div class="status" id="route-status"></div></form>
     <div class="card"><h2>Rutas activas</h2><table><thead><tr><th>TC_GROUP + TC_SUBGROUP</th><th>Origen</th><th></th></tr></thead><tbody id="routes-list"></tbody></table></div>
   </div></section>
 </main>
@@ -73,6 +105,6 @@ function splitTable(value){let p=value.split('.');return {schema:p[0]||'',name:p
 $('profile-form').onsubmit=async e=>{e.preventDefault();try{let b=splitTable($('base-table').value),d=splitTable($('detail-table').value),fieldMappings={};document.querySelectorAll('[data-role]').forEach(x=>{if(x.value)fieldMappings[x.dataset.role]=x.value});let body={id:$('profile-id').value||null,name:$('profile-name').value,sourceSystem:$('profile-source').value,resort:$('profile-resort').value||null,connectionId:$('profile-connection').value,isEnabled:$('profile-enabled').checked,baseSchema:b.schema||null,baseTable:b.name||null,detailSchema:d.schema||null,detailTable:d.name||null,baseJoinColumn:joinCol($('base-join').value),detailJoinColumn:joinCol($('detail-join').value),reservationColumn:$('filter-reservation').value||null,checkNumberColumn:$('filter-check').value||null,resortColumn:$('filter-resort').value||null,fieldMappings,customQuerySql:$('profile-query').value||null,currencyConstant:$('profile-currency').value||null,maxRows:+$('profile-max').value};await request('/profiles',{method:'POST',body:JSON.stringify(body)});status('profile-status','Perfil guardado. Ya está disponible para el procesamiento.');resetProfile();await load()}catch(x){status('profile-status',x.message,true)}};
 function resetProfile(){$('profile-form').reset();$('profile-id').value='';$('profile-max').value=250;$('profile-currency').value='MXN';$('profile-query').value='';$('profile-enabled').checked=true;schema=[];fillTables();updateColumns()}
 async function editProfile(id){let x=profiles.find(y=>y.id===id);$('profile-id').value=x.id;$('profile-name').value=x.name;$('profile-source').value=x.sourceSystem;$('profile-resort').value=x.resort||'';$('profile-connection').value=x.connectionId;$('profile-max').value=x.maxRows;$('profile-currency').value=x.currencyConstant||'';$('profile-query').value=x.customQuerySql||'';$('profile-enabled').checked=x.isEnabled;schema=x.customQuerySql?[]:await request(`/connections/${x.connectionId}/schema`);fillTables();$('base-table').value=x.baseTable?x.baseSchema+'.'+x.baseTable:'';$('detail-table').value=x.detailTable?x.detailSchema+'.'+x.detailTable:'';updateColumns();$('base-join').value=x.baseJoinColumn?'b.'+x.baseJoinColumn:'';$('detail-join').value=x.detailJoinColumn?'d.'+x.detailJoinColumn:'';$('filter-reservation').value=x.reservationColumn||'';$('filter-check').value=x.checkNumberColumn||'';$('filter-resort').value=x.resortColumn||'';Object.entries(x.fieldMappings).forEach(([k,v])=>{let e=document.querySelector(`[data-role="${k}"]`);if(e)e.value=v});document.querySelector('[data-tab="profiles"]').click()}
-$('route-form').onsubmit=async e=>{e.preventDefault();try{await request('/routes',{method:'POST',body:JSON.stringify({id:$('route-id').value||null,tcGroup:$('route-group').value,trxCode:$('route-code').value,sourceSystem:$('route-source').value,isEnabled:$('route-enabled').checked})});status('route-status','Ruta guardada y activada.');e.target.reset();$('route-enabled').checked=true;await load()}catch(x){status('route-status',x.message,true)}};
+$('route-form').onsubmit=async e=>{e.preventDefault();try{await request('/routes',{method:'POST',body:JSON.stringify({id:$('route-id').value||null,tcGroup:$('route-group').value,trxCode:$('route-code').value,sourceSystem:$('route-source').value,resort: $('route-resort').value || null,isEnabled:$('route-enabled').checked})});status('route-status','Ruta guardada y activada.');e.target.reset();$('route-enabled').checked=true;await load()}catch(x){status('route-status',x.message,true)}};
 async function removeItem(kind,id){if(!confirm('¿Eliminar esta configuración?'))return;try{await request(`/${kind}/${id}`,{method:'DELETE'});await load()}catch(x){alert(x.message)}}load().catch(x=>alert('No se pudo cargar la configuración: '+x.message));
 </script></body></html>

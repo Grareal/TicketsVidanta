@@ -58,7 +58,7 @@ public sealed record TransactionRoute(
     Guid Id, string TcGroup, string TrxCode,string resort, string SourceSystem, bool IsEnabled, DateTimeOffset UpdatedAtUtc);
 
 public sealed record SaveTransactionRouteRequest(
-    Guid? Id, string? TcGroup, string? TrxCode, string? SourceSystem, bool IsEnabled = true);
+    Guid? Id, string? TcGroup, string? TrxCode,string? Resort, string? SourceSystem, bool IsEnabled = true);
 
 internal sealed record StoredDatabaseConnection(
     Guid Id, string Name, string Provider, string ProtectedConnectionString, bool IsEnabled, DateTimeOffset UpdatedAtUtc);

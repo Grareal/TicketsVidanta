@@ -136,13 +136,13 @@ internal sealed class SqlConfigurationRepository(
     {
         var id = request.Id ?? Guid.NewGuid();
         const string sql = """
-            UPDATE dbo.ConfigTransactionRoutes SET TcGroup=@Group,TrxCode=@Code,SourceSystem=@Source,IsEnabled=@Enabled,
+            UPDATE dbo.ConfigTransactionRoutes SET TcGroup=@Group,TrxCode=@Code,Resort=@Resort,SourceSystem=@Source,IsEnabled=@Enabled,
               UpdatedAtUtc=SYSUTCDATETIME() WHERE Id=@Id;
-            IF @@ROWCOUNT=0 INSERT dbo.ConfigTransactionRoutes(Id,TcGroup,TrxCode,SourceSystem,IsEnabled)
-              VALUES(@Id,@Group,@Code,@Source,@Enabled);
+            IF @@ROWCOUNT=0 INSERT dbo.ConfigTransactionRoutes(Id,TcGroup,TrxCode,Resort,SourceSystem,IsEnabled)
+              VALUES(@Id,@Group,@Code,@Resort,@Source,@Enabled);
             """;
         await ExecuteAsync(sql, cancellationToken, new("@Id", id), new("@Group", Required(request.TcGroup, "TC Group")),
-            new("@Code", Required(request.TrxCode, "TRX Code")), new("@Source", Required(request.SourceSystem, "sistema origen")),
+            new("@Code", Required(request.TrxCode, "TRX Code")),new("@Resort", Db(request.Resort)), new("@Source", Required(request.SourceSystem, "sistema origen")),
             new("@Enabled", request.IsEnabled));
         return id;
     }

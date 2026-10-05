@@ -7,8 +7,20 @@ public sealed class CheckResolverSelector(
     ILogger<CheckResolverSelector> logger) : ICheckResolverSelector
 {
     public ResolverSelectionResult Select(CheckProcessingContext context)
+{
+    foreach (var resolver in resolvers)
     {
-        var matches = resolvers.Where(x => x.CanHandle(context)).Take(2).ToArray();
+        var canHandle = resolver.CanHandle(context);
+
+        logger.LogWarning(
+            "Resolver={Resolver} SourceSystem={SourceSystem} Resort={Resort} CanHandle={CanHandle}",
+            resolver.GetType().Name,
+            context.SourceSystem,
+            context.Resort,
+            canHandle);
+    }
+
+    var matches = resolvers.Where(x => x.CanHandle(context)).Take(2).ToArray();
         if (matches.Length == 0)
         {
             var message = $"No existe resolver para SourceSystem '{context.SourceSystem}'.";

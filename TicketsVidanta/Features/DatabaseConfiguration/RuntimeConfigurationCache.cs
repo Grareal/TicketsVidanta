@@ -8,7 +8,7 @@ namespace TicketsVidanta.Features.DatabaseConfiguration;
 internal interface IRuntimeConfigurationCache : ITicketTemplateCatalog
 {
     RuntimeTicketProfile? FindProfile(string sourceSystem, string resort);
-    string? Resolve(string? tcGroup, string? trxCode);
+    string? Resolve(string? tcGroup, string? trxCode,string? resort);
     IReadOnlyList<TransactionRoute> GetRoutes();
     Task ReloadAsync(CancellationToken cancellationToken);
 }
@@ -30,14 +30,46 @@ internal sealed class RuntimeConfigurationCache(
                    string.IsNullOrWhiteSpace(x.Profile.Resort));
     }
 
-    public string? Resolve(string? tcGroup, string? trxCode)
+    public string? Resolve(
+    string? tcGroup,
+    string? trxCode,
+    string? resort)
+{
+    var snapshot = Volatile.Read(ref _snapshot);
+
+    var matches = snapshot.Routes
+        .Where(x =>
+            string.Equals(
+                x.TcGroup,
+                tcGroup,
+                StringComparison.OrdinalIgnoreCase)
+            &&
+            string.Equals(
+                x.TrxCode,
+                trxCode,
+                StringComparison.OrdinalIgnoreCase)
+            &&
+            string.Equals(
+                x.resort,
+                resort,
+                StringComparison.OrdinalIgnoreCase))
+        .Take(2)
+        .ToArray();
+/*
+            Console.WriteLine(
+        $"ROUTER => TcGroup={tcGroup}, TrxCode={trxCode}, Resort={resort}, Matches={matches.Length}");
+
+    foreach (var match in matches)
     {
-        if (string.IsNullOrWhiteSpace(tcGroup) || string.IsNullOrWhiteSpace(trxCode)) return null;
-        var matches = Volatile.Read(ref _snapshot).Routes.Where(x =>
-            string.Equals(x.TcGroup.Trim(), tcGroup.Trim(), StringComparison.OrdinalIgnoreCase) &&
-            string.Equals(x.TrxCode.Trim(), trxCode.Trim(), StringComparison.OrdinalIgnoreCase)).Take(2).ToArray();
-        return matches.Length == 1 ? matches[0].SourceSystem : null;
+        Console.WriteLine(
+            $"MATCH => Resort={match.resort}, SourceSystem={match.SourceSystem}");
     }
+*/
+    return matches.Length == 1
+        ? matches[0].SourceSystem
+        : null;
+}
+
 
     public IReadOnlyList<TransactionRoute> GetRoutes() => Volatile.Read(ref _snapshot).Routes;
 
@@ -67,8 +99,31 @@ internal sealed class ConfigurableTransactionSourceRouter(
     OptionsTransactionSourceRouter optionsRouter,
     Microsoft.Extensions.Options.IOptions<TransactionRoutingOptions> options) : ITransactionSourceRouter, ITransactionRouteCatalog
 {
-    public string? Resolve(string? tcGroup, string? trxCode,string? resort) =>
-        cache.Resolve(tcGroup, trxCode) ?? optionsRouter.Resolve(tcGroup, trxCode,resort);
+    public string? Resolve(
+    string? tcGroup,
+    string? trxCode,
+    string? resort)
+{
+    var cacheResult =
+        cache.Resolve(
+            tcGroup,
+            trxCode,
+            resort);
+
+   // Console.WriteLine(
+     //   $"CACHE RESULT => {cacheResult}");
+
+    var optionsResult =
+        optionsRouter.Resolve(
+            tcGroup,
+            trxCode,
+            resort);
+
+   // Console.WriteLine(
+    //    $"OPTIONS RESULT => {optionsResult}");
+
+    return cacheResult ?? optionsResult;
+}
 
     public IReadOnlyList<TransactionRoutingRule> GetRules()
     {
