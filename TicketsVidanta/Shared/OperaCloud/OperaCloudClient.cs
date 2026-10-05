@@ -10,16 +10,18 @@ namespace TicketsVidanta.Shared.OperaCloud;
 public sealed class OperaCloudClient(
     HttpClient httpClient,
     IOperaCloudTokenProvider tokenProvider,
+    IOperaHotelCatalog hotelCatalog,
     IOptions<OperaCloudOptions> options) : IOperaCloudClient
 {
     public async Task<ReservationLookupResult> FindReservationAsync(
+        string resort,
         string reservationId,
         Guid correlationId,
         CancellationToken cancellationToken)
     {
-        var value = options.Value;
-        var path = $"/rsv/v1/hotels/{Uri.EscapeDataString(value.HotelId)}/reservations/{Uri.EscapeDataString(reservationId)}";
-        using var request = await CreateRequestAsync(HttpMethod.Get, path, correlationId, cancellationToken);
+        var hotelId = hotelCatalog.ResolveHotelId(resort);
+        var path = $"/rsv/v1/hotels/{Uri.EscapeDataString(hotelId)}/reservations/{Uri.EscapeDataString(reservationId)}";
+        using var request = await CreateRequestAsync(HttpMethod.Get, path, hotelId, correlationId, cancellationToken);
         using var response = await httpClient.SendAsync(request, cancellationToken);
         if (response.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.NoContent)
             return new ReservationLookupResult(false, reservationId);
@@ -32,22 +34,20 @@ public sealed class OperaCloudClient(
         DocumentUploadRequest request,
         CancellationToken cancellationToken)
     {
-        var value = options.Value;
+        var hotelId = hotelCatalog.ResolveHotelId(request.Resort);
         using var message = await CreateRequestAsync(
             HttpMethod.Post,
-            "/med/config/v1/fileAttachments",
+            $"/csh/v1/hotels/{Uri.EscapeDataString(hotelId)}/check/{Uri.EscapeDataString(request.CheckNumber)}",
+            hotelId,
             request.CorrelationId,
             cancellationToken);
 
         message.Content = JsonContent.Create(new
         {
-            linkType = "Reservation",
-            linkId = request.ReservationId,
-            fileName = request.FileName,
-            fileType = request.MimeType,
-            fileAttachment = Convert.ToBase64String(request.Content.Span),
-            description = value.AttachmentDescription,
-            userName = value.AttachmentUserName
+            checkDetails = new
+            {
+                checkImage = Convert.ToBase64String(request.Content.Span)
+            }
         });
 
         using var response = await httpClient.SendAsync(message, cancellationToken);
@@ -65,6 +65,7 @@ public sealed class OperaCloudClient(
     private async Task<HttpRequestMessage> CreateRequestAsync(
         HttpMethod method,
         string path,
+        string hotelId,
         Guid requestId,
         CancellationToken cancellationToken)
     {
@@ -74,7 +75,7 @@ public sealed class OperaCloudClient(
             "Bearer", await tokenProvider.GetAccessTokenAsync(requestId, cancellationToken));
         message.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         message.Headers.TryAddWithoutValidation("x-app-key", value.AppKey);
-        message.Headers.TryAddWithoutValidation("x-hotelid", value.HotelId);
+        message.Headers.TryAddWithoutValidation("x-hotelid", hotelId);
         message.Headers.TryAddWithoutValidation("X-Request-Id", requestId.ToString());
         if (!string.IsNullOrWhiteSpace(value.ExternalSystemCode))
             message.Headers.TryAddWithoutValidation("x-externalSystem", value.ExternalSystemCode);

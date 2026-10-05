@@ -72,7 +72,7 @@ public static class Endpoint
                 TicketTemplateValidator.Validate(request);
                 var context = new CheckProcessingContext
                 {
-                    Resort = string.IsNullOrWhiteSpace(request.Resort) ? "ACAPULCO" : request.Resort.Trim(),
+                    Resort = string.IsNullOrWhiteSpace(request.Resort) ? "VINV" : request.Resort.Trim(),
                     ReservationId = "468830 23",
                     CheckNumber = "221650",
                     Room = "1519",

@@ -182,7 +182,9 @@ vistas/stored procedures del servidor destino.
 ## Activar Opera Cloud
 
 `OperaCloudClient` implementa OAuth `client_credentials` y `password`, consulta de reserva y carga
-Base64 mediante `/med/config/v1/fileAttachments`. Complete los valores vacíos de `OperaCloud`
+del guest check mediante `POST /csh/v1/hotels/{HotelId}/check/{checkNumber}`. El `HotelId` se obtiene
+del catálogo `OperaCloud:HotelIdsByResort` y la imagen se envía como Base64 en
+`checkDetails.checkImage`. Complete los valores vacíos de `OperaCloud`
 mediante secretos, cambie `OperaCloud:UseMock` a `false` y pruebe primero en un ambiente OHIP no
 productivo. La aplicación valida al arrancar que la configuración obligatoria esté completa.
 

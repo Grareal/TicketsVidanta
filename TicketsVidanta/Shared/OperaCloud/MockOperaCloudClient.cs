@@ -4,6 +4,7 @@ namespace TicketsVidanta.Shared.OperaCloud;
 public sealed class MockOperaCloudClient(ILogger<MockOperaCloudClient> logger) : IOperaCloudClient
 {
     public Task<ReservationLookupResult> FindReservationAsync(
+        string resort,
         string reservationId,
         Guid correlationId,
         CancellationToken cancellationToken)

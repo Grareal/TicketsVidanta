@@ -3,8 +3,8 @@
 ## Implementación disponible
 
 El cliente ya implementa los contratos públicos oficiales 26.3 para obtener una reserva por ID,
-autenticarse con Resource Owner o Client Credentials y cargar el adjunto Base64 mediante
-`/med/config/v1/fileAttachments`. Consulte `OHIP-CONFIGURATION.md`.
+autenticarse con Resource Owner o Client Credentials y publicar el guest check mediante
+`POST /csh/v1/hotels/{HotelId}/check/{checkNumber}`. Consulte `OHIP-CONFIGURATION.md`.
 
 Permanece pendiente validar con las credenciales y versión del ambiente autorizado: permisos,
 límites, códigos funcionales específicos, política de retry y aceptación del PNG final.

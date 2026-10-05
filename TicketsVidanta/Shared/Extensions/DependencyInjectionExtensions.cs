@@ -126,6 +126,7 @@ public static class DependencyInjectionExtensions
 
     public static IServiceCollection AddOperaCloud(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddSingleton<IOperaHotelCatalog, OptionsOperaHotelCatalog>();
         var uploadEnabled = configuration.GetValue<bool>($"{OperaCloudOptions.SectionName}:EnableUpload");
         if (!uploadEnabled)
         {
@@ -168,7 +169,8 @@ public static class DependencyInjectionExtensions
             && !string.IsNullOrWhiteSpace(options.AppKey)
             && !string.IsNullOrWhiteSpace(options.ClientId)
             && !string.IsNullOrWhiteSpace(options.ClientSecret)
-            && !string.IsNullOrWhiteSpace(options.HotelId)
+            && !string.IsNullOrWhiteSpace(options.DefaultResort)
+            && HasDefaultHotel(options)
             && options.TimeoutSeconds is >= 1 and <= 300;
 
         if (!common) return false;
@@ -183,4 +185,10 @@ public static class DependencyInjectionExtensions
 
         return result;
     }
+
+    private static bool HasDefaultHotel(OperaCloudOptions options) =>
+        !string.IsNullOrWhiteSpace(options.HotelId) ||
+        options.HotelIdsByResort.Any(entry =>
+            string.Equals(entry.Key.Trim(), options.DefaultResort.Trim(), StringComparison.OrdinalIgnoreCase) &&
+            !string.IsNullOrWhiteSpace(entry.Value));
 }
