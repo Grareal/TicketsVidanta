@@ -60,7 +60,7 @@ public sealed class Handler(
             if (operaOptions.Value.EnableUpload)
             {
                 var reservation = await operaCloudClient.FindReservationAsync(
-                    context.ReservationId, correlationId, cancellationToken);
+                    context.Resort, context.ReservationId, correlationId, cancellationToken);
                 if (!reservation.Found)
                     return await FailAsync(context, key, "ReservationId no fue localizado en Opera Cloud.", null, cancellationToken);
             }
@@ -87,6 +87,7 @@ public sealed class Handler(
             logger.LogInformation("Uploading to Opera Cloud. CorrelationId={CorrelationId}", correlationId);
             var upload = await operaCloudClient.UploadDocumentAsync(
                 new DocumentUploadRequest(
+                    context.Resort,
                     context.ReservationId,
                     context.CheckNumber,
                     fileName,

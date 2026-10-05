@@ -42,7 +42,7 @@ public sealed class FileSystemUploadedTicketImageStore : IUploadedTicketImageSto
             throw new InvalidDataException("La imagen debe pesar entre 1 byte y 10 MB.");
 
         var bytes = buffer.ToArray();
-        if (!HasExpectedSignature(bytes, contentType.ToLowerInvariant()))
+        if (!HasExpectedSignature(bytes, contentType))
             throw new InvalidDataException("El contenido del archivo no coincide con el formato indicado.");
 
         Directory.CreateDirectory(_storagePath);
@@ -96,14 +96,14 @@ public sealed class FileSystemUploadedTicketImageStore : IUploadedTicketImageSto
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(normalized)));
     }
 
-    private static bool HasExpectedSignature(byte[] content, string contentType) => contentType switch
+    internal static bool HasExpectedSignature(ReadOnlySpan<byte> content, string contentType) => contentType.ToLowerInvariant() switch
     {
-        "image/png" => content.Length >= 8 && content.AsSpan(0, 8).SequenceEqual(
+        "image/png" => content.Length >= 8 && content[..8].SequenceEqual(
             new byte[] { 0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a }),
         "image/jpeg" => content.Length >= 3 && content[0] == 0xff && content[1] == 0xd8 && content[2] == 0xff,
         "image/webp" => content.Length >= 12
-            && Encoding.ASCII.GetString(content, 0, 4) == "RIFF"
-            && Encoding.ASCII.GetString(content, 8, 4) == "WEBP",
+            && Encoding.ASCII.GetString(content[..4]) == "RIFF"
+            && Encoding.ASCII.GetString(content.Slice(8, 4)) == "WEBP",
         _ => false
     };
 }

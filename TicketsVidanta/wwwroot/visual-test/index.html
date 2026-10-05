@@ -25,8 +25,11 @@
 <body>
   <main>
     <h1>Imagen de cheque</h1>
-    <p>Selecciona una imagen y escribe el nombre o número exacto del cheque. Al procesar ese cheque, el sistema utilizará esta imagen.</p>
+    <p>Selecciona el resort, una imagen y el número exacto del cheque. La imagen se enviará directamente al guest check de Opera.</p>
     <form id="upload-form">
+      <label for="resort">Resort</label>
+      <input id="resort" name="resort" maxlength="40" required autocomplete="off" value="VINV" placeholder="Ej. VINV">
+
       <label for="check-number">Nombre o número del cheque</label>
       <input id="check-number" name="checkNumber" maxlength="80" required autocomplete="off" placeholder="Ej. CHK-001">
 
@@ -34,7 +37,7 @@
       <input id="image" name="image" type="file" accept="image/png,image/jpeg,image/webp" required>
       <img id="preview" alt="Vista previa de la imagen seleccionada">
 
-      <button type="submit">Asociar imagen</button>
+      <button type="submit">Enviar imagen a Opera</button>
       <div id="result" role="status" aria-live="polite"></div>
     </form>
   </main>
@@ -56,14 +59,14 @@
       event.preventDefault();
       button.disabled = true;
       result.className = '';
-      result.textContent = 'Guardando imagen…';
+      result.textContent = 'Enviando imagen…';
 
       try {
         const response = await fetch('/api/visual-test/images', { method: 'POST', body: new FormData(form) });
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload.message || 'No fue posible guardar la imagen.');
+        if (!response.ok) throw new Error(payload.message || 'No fue posible enviar la imagen.');
         result.className = 'success';
-        result.textContent = `${payload.message} Cheque: ${payload.checkNumber}`;
+        result.textContent = `${payload.message} Resort: ${payload.resort}. Cheque: ${payload.checkNumber}`;
       } catch (error) {
         result.className = 'error';
         result.textContent = error.message;

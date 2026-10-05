@@ -15,9 +15,10 @@ public sealed class OperaCloudOptions
     public string Scope { get; init; } = string.Empty;
     public string Username { get; init; } = string.Empty;
     public string Password { get; init; } = string.Empty;
+    public string DefaultResort { get; init; } = "VINV";
+    public Dictionary<string, string> HotelIdsByResort { get; init; } = new(StringComparer.OrdinalIgnoreCase);
+    // Compatibilidad con la configuracion anterior. Solo se usa para DefaultResort.
     public string HotelId { get; init; } = string.Empty;
     public string ExternalSystemCode { get; init; } = string.Empty;
-    public string AttachmentUserName { get; init; } = string.Empty;
-    public string AttachmentDescription { get; init; } = "Ticket de consumo";
     public int TimeoutSeconds { get; init; } = 30;
 }
