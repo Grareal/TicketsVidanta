@@ -15,7 +15,7 @@ internal sealed partial class ConfigurableSqlCheckResolver(
     {
         "GuestName", "Room", "PointOfSale", "CheckNumber", "BusinessDate", "Time", "Subtotal", "Tip", "Tax",
         "Total", "Currency", "Header", "Footer", "Server", "Table", "GuestCount", "Turn", "CopyNumber",
-        "ItemDescription", "ItemQuantity", "ItemAmount"
+        "ItemDescription", "ItemQuantity", "ItemAmount", "RawTicketText"
     };
     private readonly ILogger<ConfigurableSqlCheckResolver> _logger = logger;
 
@@ -101,6 +101,9 @@ internal sealed partial class ConfigurableSqlCheckResolver(
                     return null;
                 }
 
+           context.RawTicketText= Text(first,"RawTicketText");
+
+
         var receipt = new CheckReceiptDetails(
             Text(first, "GuestName"), Text(first, "Room") ?? context.Room, Text(first, "PointOfSale"),
             Text(first, "CheckNumber") ?? context.CheckNumber, Date(first, "BusinessDate"), Time(first, "Time"),
@@ -146,7 +149,32 @@ internal sealed partial class ConfigurableSqlCheckResolver(
     private static string Quote(string value) => $"[{value.Replace("]", "]]", StringComparison.Ordinal)}]";
     private static string? Text(IReadOnlyDictionary<string, object?> row, string key) => row.TryGetValue(key, out var value) ? Convert.ToString(value)?.Trim() : null;
     private static decimal? Decimal(IReadOnlyDictionary<string, object?> row, string key) => row.TryGetValue(key, out var value) && value is not null ? Convert.ToDecimal(value, CultureInfo.InvariantCulture) : null;
-    private static DateTime? Date(IReadOnlyDictionary<string, object?> row, string key) => row.TryGetValue(key, out var value) && value is not null ? Convert.ToDateTime(value, CultureInfo.InvariantCulture) : null;
+
+
+    private static DateTime? Date(
+    IReadOnlyDictionary<string, object?> row,
+    string key)
+{
+    if (!row.TryGetValue(key, out var value) || value is null)
+        return null;
+
+    if (value is DateTime dt)
+        return dt;
+
+    if (value is DateTimeOffset dto)
+        return dto.DateTime;
+
+    if (DateTime.TryParse(
+        Convert.ToString(value, CultureInfo.InvariantCulture),
+        CultureInfo.InvariantCulture,
+        DateTimeStyles.None,
+        out var parsed))
+    {
+        return parsed;
+    }
+
+    return null;
+}
     private static TimeSpan? Time(IReadOnlyDictionary<string, object?> row, string key) => row.TryGetValue(key, out var value) && value is not null && TimeSpan.TryParse(Convert.ToString(value, CultureInfo.InvariantCulture), out var parsed) ? parsed : null;
     [GeneratedRegex("^[A-Za-z_][A-Za-z0-9_@$#]{0,127}$", RegexOptions.CultureInvariant)] private static partial Regex IdentifierRegex();
 }

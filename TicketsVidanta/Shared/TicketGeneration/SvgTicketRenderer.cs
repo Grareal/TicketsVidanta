@@ -26,6 +26,12 @@ public sealed class SvgTicketRenderer : ITicketRenderer
 
     public static GeneratedTicket Render(CheckProcessingContext context, CheckDetail detail, TicketLayout layout)
     {
+
+        if (!string.IsNullOrWhiteSpace(context.RawTicketText))
+            {
+                return RenderRawTicket(context.RawTicketText);
+            }
+
         TicketTemplateValidator.Validate(new SaveTicketTemplateRequest(
             null, "preview", null, null, null, true, layout));
 
@@ -89,6 +95,43 @@ public sealed class SvgTicketRenderer : ITicketRenderer
 
         return new GeneratedTicket(Encoding.UTF8.GetBytes(writer.Build()), "image/svg+xml");
     }
+
+    //Generar ticket de los que son de ezlink
+    private static GeneratedTicket RenderRawTicket(string ticketText)
+{
+    ticketText = ticketText
+        .Replace("<br><br>", "\n\n")
+        .Replace("<br>", "\n");
+
+    var lines = ticketText.Split('\n');
+
+    var content = new StringBuilder();
+
+    var y = 30;
+
+    foreach (var line in lines)
+    {
+        content.Append(
+            $"<text x=\"10\" y=\"{y}\" font-size=\"14\" font-family=\"Consolas\">{WebUtility.HtmlEncode(line)}</text>");
+
+        y += 18;
+    }
+
+    var height = y + 40;
+
+    var svg = $"""
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="800"
+     height="{height}">
+    <rect width="100%" height="100%" fill="white"/>
+    {content}
+</svg>
+""";
+
+    return new GeneratedTicket(
+        Encoding.UTF8.GetBytes(svg),
+        "image/svg+xml");
+}
 
     private static string AmountInWords(decimal amount, string? currency)
     {

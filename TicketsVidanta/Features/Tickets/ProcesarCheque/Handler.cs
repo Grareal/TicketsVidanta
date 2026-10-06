@@ -124,7 +124,13 @@ public sealed class Handler(
             logger.LogError(exception,
                 "Processing failed. CorrelationId={CorrelationId}, ReservationId={ReservationId}, CheckNumber={CheckNumber}",
                 correlationId, context.ReservationId, context.CheckNumber);
-            return await FailAsync(context, key, "El procesamiento terminó con un error controlado.", fileName, cancellationToken);
+
+            return await FailAsync(
+                context,
+                key,
+                exception.ToString(),
+                fileName,
+                cancellationToken);
         }
     }
 

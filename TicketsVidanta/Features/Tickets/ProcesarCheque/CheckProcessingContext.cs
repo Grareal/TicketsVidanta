@@ -31,4 +31,6 @@ public sealed class CheckProcessingContext
     public DateTimeOffset StartedAt { get; init; } = DateTimeOffset.UtcNow;
     /// <summary>Instante UTC en que terminó el intento, si ya terminó.</summary>
     public DateTimeOffset? CompletedAt { get; set; }
+
+    public string? RawTicketText { get; set; }
 }
