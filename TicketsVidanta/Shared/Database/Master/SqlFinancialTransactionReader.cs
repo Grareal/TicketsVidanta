@@ -35,9 +35,11 @@ public sealed partial class SqlFinancialTransactionReader(
         await using var command = new SqlCommand();
         for (var index = 0; index < rules.Count; index++)
         {
-            predicates.Add($"({tcGroupColumn}=@Group{index} AND CONVERT(nvarchar(80), {trxCodeColumn})=@Code{index})");
-            command.Parameters.AddWithValue($"@Group{index}", rules[index].TcGroup);
-            command.Parameters.AddWithValue($"@Code{index}", rules[index].TrxCode);
+            // Do not wrap the source columns in CONVERT: it prevents seeks on the source index.
+            // A varchar parameter can still be implicitly converted when TRX_CODE is numeric.
+            predicates.Add($"({tcGroupColumn}=@Group{index} AND {trxCodeColumn}=@Code{index})");
+            command.Parameters.Add(new SqlParameter($"@Group{index}", System.Data.SqlDbType.VarChar, 80) { Value = rules[index].TcGroup });
+            command.Parameters.Add(new SqlParameter($"@Code{index}", System.Data.SqlDbType.VarChar, 80) { Value = rules[index].TrxCode });
         }
 
         command.CommandText = $"""

@@ -28,6 +28,8 @@ public static class DependencyInjectionExtensions
         services.AddOptions<ProcessingOptions>()
             .Bind(configuration.GetSection(ProcessingOptions.SectionName))
             .ValidateDataAnnotations()
+            .Validate(IsValidProcessingConfiguration,
+                "La configuraciÃ³n de Processing:Controlled es invÃ¡lida o no tiene filtros.")
             .ValidateOnStart();
         services.AddOptions<DatabaseOptions>()
             .Bind(configuration.GetSection(DatabaseOptions.SectionName))
@@ -191,4 +193,14 @@ public static class DependencyInjectionExtensions
         options.HotelIdsByResort.Any(entry =>
             string.Equals(entry.Key.Trim(), options.DefaultResort.Trim(), StringComparison.OrdinalIgnoreCase) &&
             !string.IsNullOrWhiteSpace(entry.Value));
+
+    private static bool IsValidProcessingConfiguration(ProcessingOptions options)
+    {
+        if (options.Mode != ProcessingMode.Controlled) return true;
+        if (options.Controlled.MaxDocuments is < 1 or > 100 || !options.Controlled.HasSelector) return false;
+        return options.Controlled.Documents.All(document =>
+            !string.IsNullOrWhiteSpace(document.Resort) &&
+            !string.IsNullOrWhiteSpace(document.ReservationId) &&
+            !string.IsNullOrWhiteSpace(document.CheckNumber));
+    }
 }

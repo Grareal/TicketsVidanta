@@ -21,15 +21,25 @@ public sealed class TicketProcessingBackgroundService(
         }
 
         logger.LogInformation("Background ticket processing started.");
+        if (options.Value.Mode == ProcessingMode.Controlled)
+        {
+            var selection = options.Value.GetControlledSelection();
+            logger.LogWarning(
+                "Controlled processing is enabled. At most {MaxDocuments} matching Pending document(s) will be processed, then the worker will stop.",
+                selection!.MaxDocuments);
+            await ProcessBatchAsync(selection, stoppingToken);
+            return;
+        }
+
         using var timer = new PeriodicTimer(TimeSpan.FromSeconds(options.Value.IntervalSeconds));
         do
         {
-            await ProcessBatchAsync(stoppingToken);
+            await ProcessBatchAsync(null, stoppingToken);
         }
         while (await timer.WaitForNextTickAsync(stoppingToken));
     }
 
-    private async Task ProcessBatchAsync(CancellationToken cancellationToken)
+    private async Task ProcessBatchAsync(MasterTransactionSelection? selection, CancellationToken cancellationToken)
     {
         if (!await _singleExecution.WaitAsync(0, cancellationToken)) return;
         try
@@ -37,7 +47,8 @@ public sealed class TicketProcessingBackgroundService(
             using var scope = scopeFactory.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IMasterTransactionRepository>();
             var processor = scope.ServiceProvider.GetRequiredService<ITicketProcessor>();
-            var pending = await repository.GetPendingTransactionsAsync(options.Value.BatchSize, cancellationToken);
+            var batchSize = selection?.MaxDocuments ?? options.Value.BatchSize;
+            var pending = await repository.GetPendingTransactionsAsync(batchSize, selection, cancellationToken);
 
             foreach (var transaction in pending)
             {

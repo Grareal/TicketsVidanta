@@ -211,6 +211,12 @@ dotnet run --project .\TicketsVidanta\TicketsVidanta.csproj --launch-profile htt
 es atómico entre instancias, los fallos se reabren hasta `MaxAttempts` y un lease vencido permite
 recuperar trabajo abandonado tras una caída.
 
+Para validar la carga de Opera Cloud con uno o unos pocos documentos, use
+`Processing:Mode=Controlled`. El worker procesa solo un lote de filas `Pending` que coincidan con
+los filtros configurados y se detiene. La configuración por documento exacto, por tipo y las
+recomendaciones para reducir carga al servidor fuente están en
+[Operación controlada](docs/OPERACION-CONTROLADA.md).
+
 ## Pruebas
 
 ```powershell

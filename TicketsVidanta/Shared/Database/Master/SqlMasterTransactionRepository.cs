@@ -10,17 +10,37 @@ public sealed class SqlMasterTransactionRepository(
 {
     public async Task<IReadOnlyList<MasterTransaction>> GetPendingTransactionsAsync(
         int batchSize,
+        MasterTransactionSelection? selection,
         CancellationToken cancellationToken)
     {
-        const string sql = """
+        var filters = new List<string>();
+        await using var connection = connectionFactory.CreateConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var command = new SqlCommand { Connection = connection };
+
+        var statusPredicate = """
+            (Status IN ('Pending', 'Failed') OR
+             (Status = 'Processing' AND LeaseUntilUtc < SYSUTCDATETIME()))
+            """;
+        if (selection is not null)
+        {
+            // A controlled run must never retry or recover an already claimed document.
+            statusPredicate = "Status = 'Pending'";
+            AddDocumentFilter(command, filters, selection.Documents);
+            AddInFilter(command, filters, "SourceSystem", "SourceSystem", selection.SourceSystems);
+            AddInFilter(command, filters, "Resort", "Resort", selection.Resorts);
+            AddInFilter(command, filters, "TcGroup", "TcGroup", selection.TcGroups);
+            AddInFilter(command, filters, "TrxCode", "TrxCode", selection.TrxCodes);
+        }
+
+        command.CommandText = $"""
             ;WITH Claimable AS
             (
                 SELECT TOP (@BatchSize) *
                 FROM dbo.MasterTransactions WITH (UPDLOCK, READPAST, ROWLOCK)
-                WHERE
-                    (Status IN ('Pending', 'Failed') OR
-                     (Status = 'Processing' AND LeaseUntilUtc < SYSUTCDATETIME()))
+                WHERE {statusPredicate}
                     AND AttemptCount < @MaxAttempts
+                    {string.Join(Environment.NewLine, filters)}
                 ORDER BY CreatedAtUtc, Id
             )
             UPDATE Claimable
@@ -36,9 +56,6 @@ public sealed class SqlMasterTransactionRepository(
             """;
 
         var result = new List<MasterTransaction>();
-        await using var connection = connectionFactory.CreateConnection();
-        await connection.OpenAsync(cancellationToken);
-        await using var command = new SqlCommand(sql, connection);
         command.Parameters.AddWithValue("@BatchSize", batchSize);
         command.Parameters.AddWithValue("@MaxAttempts", processingOptions.Value.MaxAttempts);
         command.Parameters.AddWithValue("@LeaseSeconds", processingOptions.Value.ClaimLeaseSeconds);
@@ -54,6 +71,44 @@ public sealed class SqlMasterTransactionRepository(
         }
 
         return result;
+    }
+
+    private static void AddDocumentFilter(
+        SqlCommand command,
+        ICollection<string> filters,
+        IReadOnlyList<MasterTransactionDocument> documents)
+    {
+        if (documents.Count == 0) return;
+
+        var predicates = new List<string>();
+        for (var index = 0; index < documents.Count; index++)
+        {
+            var document = documents[index];
+            predicates.Add($"(Resort=@DocumentResort{index} AND ReservationId=@DocumentReservation{index} AND CheckNumber=@DocumentCheck{index})");
+            command.Parameters.AddWithValue($"@DocumentResort{index}", document.Resort);
+            command.Parameters.AddWithValue($"@DocumentReservation{index}", document.ReservationId);
+            command.Parameters.AddWithValue($"@DocumentCheck{index}", document.CheckNumber);
+        }
+        filters.Add($"AND ({string.Join(" OR ", predicates)})");
+    }
+
+    private static void AddInFilter(
+        SqlCommand command,
+        ICollection<string> filters,
+        string column,
+        string parameterPrefix,
+        IReadOnlyList<string> values)
+    {
+        if (values.Count == 0) return;
+
+        var parameters = new List<string>();
+        for (var index = 0; index < values.Count; index++)
+        {
+            var parameter = $"@{parameterPrefix}{index}";
+            parameters.Add(parameter);
+            command.Parameters.AddWithValue(parameter, values[index]);
+        }
+        filters.Add($"AND {column} IN ({string.Join(", ", parameters)})");
     }
 
     public Task MarkAsProcessedAsync(string transactionId, Guid correlationId, CancellationToken cancellationToken) =>

@@ -19,21 +19,23 @@ public sealed class InssistKidsClubCheckResolver(ICommerceSqlConnectionFactory c
                    hc.folio, hc.num_hab, hc.total, hm.platillo, hm.importe
             FROM hotche hc
             INNER JOIN hotcom hm
-              ON RTRIM(hc.caja) = RTRIM(hm.caja)
-             AND RTRIM(hc.turno) = RTRIM(hm.turno)
-             AND RTRIM(hc.folio) = RTRIM(hm.folio)
-            INNER JOIN H_Cajas_Descrip cd ON RTRIM(hc.caja) = RTRIM(cd.clave)
+              ON hc.caja = hm.caja
+             AND hc.turno = hm.turno
+             AND hc.folio = hm.folio
+            INNER JOIN H_Cajas_Descrip cd ON hc.caja = cd.clave
             WHERE hc.caja IN ('56', '57')
-              AND LTRIM(RTRIM(hc.cargar_a)) = @ReservationId
-              AND LTRIM(RTRIM(CONVERT(nvarchar(80), hc.folio))) = @CheckNumber
+              AND hc.cargar_a = @ReservationId
+              AND hc.folio = @CheckNumber
             ORDER BY hc.fec_che DESC;
             """;
 
         await using var connection = connectionFactory.Create(SourceSystemName, context.Resort);
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@ReservationId", context.ReservationId.Trim());
-        command.Parameters.AddWithValue("@CheckNumber", context.CheckNumber.Trim());
+        command.Parameters.Add(new SqlParameter("@ReservationId", System.Data.SqlDbType.VarChar, 80)
+        { Value = context.ReservationId.Trim() });
+        command.Parameters.Add(new SqlParameter("@CheckNumber", System.Data.SqlDbType.VarChar, 80)
+        { Value = context.CheckNumber.Trim() });
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var items = new List<CheckItem>();

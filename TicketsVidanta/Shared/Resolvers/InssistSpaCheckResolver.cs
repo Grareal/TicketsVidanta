@@ -36,18 +36,20 @@ public sealed class InssistSpaCheckResolver(ICommerceSqlConnectionFactory connec
             INNER JOIN spapgo p ON p.pgo_Cheque = s.srp_Cheque
             LEFT JOIN hotche h
               ON h.folio = s.srp_Cheque
-             AND LTRIM(RTRIM(h.cargar_a)) = LTRIM(RTRIM(p.pgo_CargoA))
+             AND h.cargar_a = p.pgo_CargoA
             LEFT JOIN spapar sp ON sp.par_PuntoVenta = h.caja
-            WHERE LTRIM(RTRIM(p.pgo_CargoA)) = @ReservationId
-              AND LTRIM(RTRIM(CONVERT(nvarchar(80), s.srp_Cheque))) = @CheckNumber
+            WHERE p.pgo_CargoA = @ReservationId
+              AND s.srp_Cheque = @CheckNumber
             ORDER BY s.srp_Fecha, s.srp_HoraIni;
             """;
 
         await using var connection = connectionFactory.Create(SourceSystemName, context.Resort);
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection);
-        command.Parameters.AddWithValue("@ReservationId", context.ReservationId.Trim());
-        command.Parameters.AddWithValue("@CheckNumber", context.CheckNumber.Trim());
+        command.Parameters.Add(new SqlParameter("@ReservationId", System.Data.SqlDbType.VarChar, 80)
+        { Value = context.ReservationId.Trim() });
+        command.Parameters.Add(new SqlParameter("@CheckNumber", System.Data.SqlDbType.VarChar, 80)
+        { Value = context.CheckNumber.Trim() });
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
 
         var items = new List<CheckItem>();

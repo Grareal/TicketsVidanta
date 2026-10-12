@@ -20,7 +20,8 @@ public sealed class FinancialTransactionSourceOptions
     public string RoomColumn { get; init; } = "ROOM";
     public string ReferenceColumn { get; init; } = "REFERENCE";
     public string RemarkColumn { get; init; } = "REMARK";
-    [Range(1, 10000)] public int BatchSize { get; init; } = 1000;
+    // Conservative defaults: this source is normally a shared operational database.
+    [Range(1, 10000)] public int BatchSize { get; init; } = 100;
     [Range(1, 365)] public int LookbackDays { get; init; } = 7;
-    [Range(5, 3600)] public int IntervalSeconds { get; init; } = 60;
+    [Range(5, 3600)] public int IntervalSeconds { get; init; } = 300;
 }
