@@ -30,8 +30,40 @@ public sealed class Handler(
         var key = ProcessingKey.From(context);
 
         logger.LogInformation(
-            "Starting processing. CorrelationId={CorrelationId}, ReservationId={ReservationId}, CheckNumber={CheckNumber}",
-            correlationId, context.ReservationId, context.CheckNumber);
+            "Starting processing. CorrelationId={CorrelationId}, ReservationId={ReservationId}, CheckNumber={CheckNumber}, Mode={Mode}",
+            correlationId, context.ReservationId, context.CheckNumber, request.Mode);
+
+        if (request.Mode == TicketExecutionMode.Simulation)
+        {
+            var selection = resolverSelector.Select(context);
+            if (!selection.IsSuccess)
+                return new Response(false, correlationId, ProcessingStatus.Failed, selection.Error ?? "No fue posible seleccionar un resolver.");
+
+            var detail = await selection.Resolver!.ResolveAsync(context, cancellationToken);
+            if (detail is null)
+                return new Response(false, correlationId, ProcessingStatus.Failed, "El resolver no encontró el detalle del cheque.");
+
+            context.Items = detail.Items;
+            var generated = await ticketRenderer.RenderAsync(context, detail, cancellationToken);
+            var simPayload = new
+            {
+                resort = context.Resort,
+                reservationId = context.ReservationId,
+                checkNumber = context.CheckNumber,
+                room = context.Room,
+                sourceSystem = context.SourceSystem,
+                total = detail.Total,
+                currency = detail.Currency,
+                receipt = detail.Receipt,
+                items = detail.Items,
+                renderedMimeType = generated.MimeType,
+                documentSizeBytes = generated.Content.Length
+            };
+
+            return new Response(true, correlationId, ProcessingStatus.Completed,
+                "Simulación completada exitosamente (no se enviaron datos a OPERA ni se mutó estado).",
+                SimulationPayload: simPayload);
+        }
 
         if (!await registry.TryRegisterStartedAsync(key, correlationId, cancellationToken))
         {
@@ -57,7 +89,7 @@ public sealed class Handler(
             context.ProcessingStatus = ProcessingStatus.Resolved;
             logger.LogInformation("Check detail retrieved. CorrelationId={CorrelationId}, ItemCount={ItemCount}", correlationId, detail.Items.Count);
 
-            if (operaOptions.Value.EnableUpload)
+            if (request.Mode == TicketExecutionMode.Live && operaOptions.Value.EnableUpload)
             {
                 var reservation = await operaCloudClient.FindReservationAsync(
                     context.Resort, context.ReservationId, correlationId, cancellationToken);
@@ -72,15 +104,21 @@ public sealed class Handler(
             await ticketStore.SaveAsync(fileName, generated, cancellationToken);
             logger.LogInformation("Document generated. CorrelationId={CorrelationId}, FileName={FileName}", correlationId, fileName);
 
-            if (!operaOptions.Value.EnableUpload)
+            if (request.Mode == TicketExecutionMode.DryRun || !operaOptions.Value.EnableUpload)
             {
                 context.ProcessingStatus = ProcessingStatus.Completed;
                 context.CompletedAt = DateTimeOffset.UtcNow;
                 await registry.RegisterCompletedAsync(key, correlationId, cancellationToken);
-                await auditService.WriteAsync(CreateAudit(context, fileName, null, null), cancellationToken);
-                logger.LogInformation("Ticket archived locally; Opera Cloud upload is disabled. CorrelationId={CorrelationId}", correlationId);
+                var auditNote = request.Mode == TicketExecutionMode.DryRun
+                    ? "DryRun: Documento generado y guardado localmente sin envío a OPERA."
+                    : null;
+                await auditService.WriteAsync(CreateAudit(context, fileName, null, auditNote), cancellationToken);
+                logger.LogInformation("Ticket archived locally in mode {Mode}. CorrelationId={CorrelationId}", request.Mode, correlationId);
                 return new Response(true, correlationId, ProcessingStatus.Completed,
-                    "El ticket fue generado localmente; la carga a Opera Cloud está deshabilitada.", fileName);
+                    request.Mode == TicketExecutionMode.DryRun
+                        ? "DryRun completado exitosamente; el ticket fue generado localmente sin enviar a OPERA."
+                        : "El ticket fue generado localmente; la carga a Opera Cloud está deshabilitada.",
+                    fileName);
             }
 
             context.ProcessingStatus = ProcessingStatus.Uploading;

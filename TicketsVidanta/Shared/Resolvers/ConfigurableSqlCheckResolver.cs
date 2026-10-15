@@ -29,10 +29,10 @@ internal sealed partial class ConfigurableSqlCheckResolver(IRuntimeConfiguration
         await using var connection = new SqlConnection(runtime.ConnectionString);
         await connection.OpenAsync(cancellationToken);
         await using var command = new SqlCommand(sql, connection) { CommandTimeout = 30 };
-        command.Parameters.AddWithValue("@MaxRows", profile.MaxRows);
-        command.Parameters.AddWithValue("@ReservationId", context.ReservationId.Trim());
-        command.Parameters.AddWithValue("@CheckNumber", context.CheckNumber.Trim());
-        command.Parameters.AddWithValue("@Resort", context.Resort.Trim());
+        command.Parameters.Add(new SqlParameter("@MaxRows", System.Data.SqlDbType.Int) { Value = profile.MaxRows });
+        command.Parameters.Add(new SqlParameter("@ReservationId", System.Data.SqlDbType.VarChar, 80) { Value = context.ReservationId.Trim() });
+        command.Parameters.Add(new SqlParameter("@CheckNumber", System.Data.SqlDbType.VarChar, 80) { Value = context.CheckNumber.Trim() });
+        command.Parameters.Add(new SqlParameter("@Resort", System.Data.SqlDbType.VarChar, 40) { Value = context.Resort.Trim() });
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
         var items = new List<CheckItem>();
         Dictionary<string, object?>? first = null;

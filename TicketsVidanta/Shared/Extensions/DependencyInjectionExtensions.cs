@@ -13,6 +13,8 @@ using TicketsVidanta.Shared.Processing;
 using TicketsVidanta.Shared.Resolvers;
 using TicketsVidanta.Shared.Routing;
 using TicketsVidanta.Shared.TicketGeneration;
+using TicketsVidanta.Features.SyncEngine;
+using TicketsVidanta.Features.ControlledExecution;
 using StatusHandler = TicketsVidanta.Features.Tickets.ObtenerEstado.Handler;
 using ProcessHandler = TicketsVidanta.Features.Tickets.ProcesarCheque.Handler;
 
@@ -50,6 +52,8 @@ public static class DependencyInjectionExtensions
             .ValidateOnStart();
         services.AddOptions<DatabaseConfigurationOptions>()
             .Bind(configuration.GetSection(DatabaseConfigurationOptions.SectionName));
+        services.AddOptions<SyncEngineOptions>()
+            .Bind(configuration.GetSection(SyncEngineOptions.SectionName));
 
         var useSqlPersistence = configuration.GetValue<bool>($"{DatabaseOptions.SectionName}:UseSqlPersistence");
         if (useSqlPersistence)
@@ -81,6 +85,10 @@ public static class DependencyInjectionExtensions
             services.AddSingleton<IRuntimeConfigurationCache>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
             services.AddSingleton<ITicketTemplateCatalog>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
             services.AddSingleton<IHostedService>(sp => sp.GetRequiredService<RuntimeConfigurationCache>());
+            services.AddSingleton<ISyncCatalogRepository, SqlSyncCatalogRepository>();
+            services.AddSingleton<ITableSyncService, TableSyncService>();
+            services.AddHostedService<IncrementalSyncBackgroundService>();
+            services.AddScoped<IControlledExecutionService, ControlledExecutionService>();
         }
         else
         {

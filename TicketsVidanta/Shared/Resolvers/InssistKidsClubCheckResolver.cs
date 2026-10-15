@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
+using TicketsVidanta.Shared.Database;
 using TicketsVidanta.Shared.Database.Commerce;
 using TicketsVidanta.Shared.Models;
 
@@ -50,7 +51,7 @@ public sealed class InssistKidsClubCheckResolver(ICommerceSqlConnectionFactory c
                 Room: reader.IsDBNull(6) ? context.Room : Convert.ToString(reader.GetValue(6))?.Trim(),
                 PointOfSale: reader.IsDBNull(3) ? null : Convert.ToString(reader.GetValue(3))?.Trim(),
                 CheckNumber: reader.IsDBNull(5) ? context.CheckNumber : Convert.ToString(reader.GetValue(5))?.Trim(),
-                BusinessDate: reader.IsDBNull(0) ? null : Convert.ToDateTime(reader.GetValue(0)),
+                BusinessDate: reader.IsDBNull(0) ? null : FlexibleDateParser.ParseNullable(reader.GetValue(0)),
                 Time: ReadTime(reader, 1),
                 Header: reader.IsDBNull(4) ? null : Convert.ToString(reader.GetValue(4))?.Trim());
         }

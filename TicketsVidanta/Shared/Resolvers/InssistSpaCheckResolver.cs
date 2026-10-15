@@ -1,5 +1,6 @@
 using Microsoft.Data.SqlClient;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
+using TicketsVidanta.Shared.Database;
 using TicketsVidanta.Shared.Database.Commerce;
 using TicketsVidanta.Shared.Models;
 
@@ -75,7 +76,7 @@ public sealed class InssistSpaCheckResolver(ICommerceSqlConnectionFactory connec
     private static decimal? GetDecimal(SqlDataReader reader, int ordinal) =>
         reader.IsDBNull(ordinal) ? null : Convert.ToDecimal(reader.GetValue(ordinal));
     private static DateTime? GetDateTime(SqlDataReader reader, int ordinal) =>
-        reader.IsDBNull(ordinal) ? null : Convert.ToDateTime(reader.GetValue(ordinal));
+        reader.IsDBNull(ordinal) ? null : FlexibleDateParser.ParseNullable(reader.GetValue(ordinal));
     private static TimeSpan? GetTimeSpan(SqlDataReader reader, int ordinal) => reader.IsDBNull(ordinal) ? null :
         reader.GetValue(ordinal) is TimeSpan value ? value : TimeSpan.TryParse(Convert.ToString(reader.GetValue(ordinal)), out var parsed) ? parsed : null;
 }

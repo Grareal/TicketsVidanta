@@ -1,14 +1,36 @@
 using Microsoft.Data.SqlClient;
+using TicketsVidanta.Shared.Configuration;
 
 namespace TicketsVidanta.Shared.Database.Commerce;
 
 public sealed class CommerceSqlConnectionFactory(
     ICommerceConnectionCatalog catalog,
-    IConfiguration configuration) : ICommerceSqlConnectionFactory
+    IConfiguration configuration,
+    ISqlConnectionFactory localConnectionFactory,
+    Microsoft.Extensions.Options.IOptions<CommerceDatabaseOptions> options) : ICommerceSqlConnectionFactory
 {
     public SqlConnection Create(string sourceSystem, string resort)
     {
-        if (!catalog.TryGet(sourceSystem, resort, out var descriptor) || descriptor is null)
+        var key = $"{sourceSystem}:{resort}";
+        var useLocal = options.Value.UseLocalIntegration;
+        if (options.Value.LocalIntegrationOverrides.TryGetValue(key, out var overrideVal))
+            useLocal = overrideVal;
+
+        if (catalog.TryGet(sourceSystem, resort, out var descriptor) && descriptor is not null)
+        {
+            if (options.Value.Connections.TryGetValue(key, out var def) && def.UseLocalIntegration)
+                useLocal = true;
+
+            if (string.Equals(descriptor.ConnectionStringName, "TicketsVidanta", StringComparison.OrdinalIgnoreCase))
+                useLocal = true;
+        }
+
+        if (useLocal)
+        {
+            return localConnectionFactory.CreateConnection();
+        }
+
+        if (descriptor is null)
             throw new InvalidOperationException(
                 $"No existe una conexión de comercio para '{sourceSystem}' en el resort '{resort}'.");
 

@@ -3,6 +3,8 @@ using TicketsVidanta.Features.Tickets.ObtenerEstado;
 using TicketsVidanta.Features.Tickets.ProcesarCheque;
 using TicketsVidanta.Features.VisualTest;
 using TicketsVidanta.Features.DatabaseConfiguration;
+using TicketsVidanta.Features.SyncEngine;
+using TicketsVidanta.Features.ControlledExecution;
 using TicketsVidanta.Shared.Configuration;
 using TicketsVidanta.Shared.Extensions;
 
@@ -30,6 +32,8 @@ if (builder.Configuration.GetValue<bool>($"{DatabaseConfigurationOptions.Section
 {
     app.UseStaticFiles();
     app.MapDatabaseConfigurationEndpoints();
+    app.MapSyncEngineEndpoints();
+    app.MapControlledExecutionEndpoints();
 }
 app.MapHealthChecks("/health");
 // TODO [DISCOVERY]:
